@@ -3,19 +3,7 @@
 include \masm32\include\windows.inc
 include \masm32\include\user32.inc
 
-EXTERN AddLayer:proc
-EXTERN SetLayer:proc
-
 .DATA 
-	buffer db 2 dup(0)
-
-	EXTERN windowTitleInformation:BYTE
-	EXTERN windowTitleError:BYTE
-
-	EXTERN msgText:BYTE
-	EXTERN msgFmt:BYTE
-
-	EXTERN color:COLORREF
 	EXTERN brushSize:DWORD
 	EXTERN selectedTool:DWORD	
 

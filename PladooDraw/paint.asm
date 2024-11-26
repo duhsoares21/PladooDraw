@@ -14,8 +14,10 @@ includelib \masm32\lib\gdiplus.lib
 
 includelib PladooDraw_Direct2D_LayerSystem.lib
 
-EXTERN ResetParameters:proc
+EXTERN handleMouseUp:proc
+EXTERN PaintBucketTool:proc
 EXTERN EllipseTool:proc
+EXTERN LineTool:proc
 EXTERN RectangleTool:proc
 EXTERN BrushTool:proc
 EXTERN EraserTool:proc
@@ -272,7 +274,7 @@ WinMain proc
 
             mov byte ptr [isMouseDown], 0
 
-            call ResetParameters
+            call handleMouseUp
 
         .ELSEIF uMsg==WM_MOUSEMOVE
                 
@@ -299,164 +301,73 @@ WinMain proc
         ret
     WndProc endp
 
-TEraser Proc hWnd:HWND, hdc:HDC, x:DWORD, y:DWORD, localBrushSize:DWORD
+TEraser Proc hWnd:HWND, x:DWORD, y:DWORD, localBrushSize:DWORD
         
     push localBrushSize
     push y
     push x
-    push hdc
     call EraserTool
-    
-    push hdc
-    push hWnd
-    call ReleaseDC
     
     ret
 TEraser endp
 
-TBrush Proc hWnd:HWND, hdc:HDC, x:DWORD, y:DWORD, localColor: COLORREF, localBrushSize:DWORD
+TBrush Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF, localBrushSize:DWORD
 
     push localBrushSize
     push localColor
     push y
     push x
-    push hdc
     call BrushTool
     
-    push hdc
-    push hWnd
-    call ReleaseDC
-
     ret
 TBrush endp
 
-TRectangle Proc hWnd:HWND, hdc:HDC, x:DWORD, y:DWORD, localColor: COLORREF
+TRectangle Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF
     
     push localColor
     push y
     push x
     push yInitial
     push xInitial
-    push hdc
     call RectangleTool
-
-    push hdc
-    push hWnd
-    call ReleaseDC
 
     ret
 
 TRectangle endp
 
-TEllipse Proc hWnd:HWND, hdc:HDC, x:DWORD, y:DWORD, localColor: COLORREF
+TEllipse Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF
 
     push localColor
     push y
     push x
     push yInitial
     push xInitial
-    push hdc
     call EllipseTool
 
-    push hdc
-    push hWnd
-    call ReleaseDC
-
     ret
-
+        
 TEllipse endp
 
-TLine Proc hWnd:HWND, hdc:HDC, x:DWORD, y:DWORD, localColor: COLORREF
-    LOCAL rect:RECT
-
-    mov edx, xInitial
-    mov rect.left, edx
-
-    mov edx, yInitial
-    mov rect.top, edx
-
-    mov edx, x
-    mov rect.right, edx
-
-    mov edx, y
-    mov rect.bottom, edx
-
-    cmp DWORD PTR[inSession], 1
-    je UNDRAW
-
-    jmp DRAW
-
-    UNDRAW: 
-        invoke SetROP2, hdc, R2_WHITE
-        
-        invoke CreatePen, PS_SOLID, 1, 00FFFFFFh
-        mov hPen, eax
-        invoke SelectObject, hdc, hPen
-        
-        .IF (prevRect.left != 0 || prevRect.right != 0)
-            invoke MoveToEx, hdc, prevRect.left, prevRect.top, NULL 
-            invoke LineTo, hdc, prevRect.right, prevRect.bottom
-        .ENDIF
-        
-        invoke DeleteObject, hPen
-
-        mov prevRect.left, 0
-        mov prevRect.right, 0
-        mov prevRect.top, 0
-        mov prevRect.bottom, 0
-
-    DRAW:
-        invoke SetROP2, hdc, R2_COPYPEN
-        mov DWORD PTR[inSession], 1
-        
-        invoke CreatePen, PS_SOLID, 1, localColor
-        mov hPen, eax
-        invoke SelectObject, hdc, hPen
-
-        invoke MoveToEx, hdc, rect.left, rect.top, NULL 
-        invoke LineTo, hdc, rect.right, rect.bottom
-                
-        invoke DeleteObject, hPen
-
-        mov edx, rect.left
-        mov prevRect.left, edx
-
-        mov edx, rect.top
-        mov prevRect.top, edx
-
-        mov edx, rect.right
-        mov prevRect.right, edx
-
-        mov edx, rect.bottom
-        mov prevRect.bottom, edx
-
-        xor eax, eax
-        xor edx, edx
-
-        invoke ReleaseDC, hWnd, hdc
+TLine Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF, localBrushSize: DWORD
+    
+    push localBrushSize
+    push localColor
+    push y
+    push x
+    push yInitial
+    push xInitial
+    call LineTool
 
     ret
 
 TLine endp
 
 TBucket proc hWnd:HWND, hdc:HDC, localColor:COLORREF
-    LOCAL surfaceColor:COLORREF
-
-    invoke CreateSolidBrush, localColor
-    mov hBrush, eax
-
-    invoke SelectObject, hdc, hBrush
-
-    invoke GetPixel, hdc, xInitial, yInitial
-    mov surfaceColor, eax
-
-    invoke ExtFloodFill, hdc, xInitial, yInitial, surfaceColor, FLOODFILLSURFACE
-
-    invoke DeleteObject, hBrush
-    invoke ReleaseDC, hWnd, hdc
-
-    mov surfaceColor, 0
-    xor eax, eax
+    
+    push localColor
+    push yInitial
+    push xInitial
+    call PaintBucketTool
 
     ret
 TBucket endp
@@ -498,23 +409,23 @@ Paint Proc hWnd:HWND, x:DWORD, y:DWORD
             mov edx, brushSize
             add edx, 18
         
-            invoke TEraser, hWnd, hdc, x, y, edx
+            invoke TEraser, hWnd, x, y, edx
             jmp END_PROC
 
         LBrushTool:
-            invoke TBrush, hWnd, hdc, x, y, color, brushSize
+            invoke TBrush, hWnd, x, y, color, brushSize
             jmp END_PROC
 
         LRectangleTool: 
-            invoke TRectangle, hWnd, hdc, x, y, color
+            invoke TRectangle, hWnd, x, y, color
             jmp END_PROC
 
         LEllipseTool:
-            invoke TEllipse, hWnd, hdc, x, y, color
+            invoke TEllipse, hWnd, x, y, color
             jmp END_PROC
 
-        LLineTool: 
-            invoke TLine, hWnd, hdc, x, y, color
+        LLineTool:  
+            invoke TLine, hWnd, x, y, color, brushSize
             jmp END_PROC
 
         LBucketTool: 
