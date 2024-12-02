@@ -275,6 +275,7 @@ WinMain proc
             mov byte ptr [isMouseDown], 0
 
             call handleMouseUp
+            call RenderLayers
 
         .ELSEIF uMsg==WM_MOUSEMOVE
                 
@@ -287,7 +288,16 @@ WinMain proc
             mov gY, eax 
 
             invoke Paint, hWnd, gX, gY
+            
+            cmp byte ptr [isMouseDown], 1
+            jne LEndProc
+
+            cmp DWORD PTR [selectedTool], 5
+            je LEndProc
+            
             call RenderLayers
+
+            LEndProc:
             ret
 
         .ELSE
@@ -364,6 +374,7 @@ TLine endp
 
 TBucket proc hWnd:HWND, hdc:HDC, localColor:COLORREF
     
+    push hWnd
     push localColor
     push yInitial
     push xInitial
