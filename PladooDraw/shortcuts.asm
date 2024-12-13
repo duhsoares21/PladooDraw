@@ -3,9 +3,16 @@
 include \masm32\include\windows.inc
 include \masm32\include\user32.inc
 
+includelib PladooDraw_Direct2D_LayerSystem.lib
+
 .DATA 
 	EXTERN brushSize:DWORD
 	EXTERN selectedTool:DWORD	
+	EXTERN Undo:proc
+	EXTERN Redo:proc
+	EXTERN ReorderLayerUp:proc
+	EXTERN ReorderLayerDown:proc
+	EXTERN UpdateLayers:proc
 
 .CODE
 	Shortcuts Proc hWnd:HWND, wParam:WPARAM
@@ -42,6 +49,18 @@ include \masm32\include\user32.inc
 		cmp al, VK_E
 		je Eraser
 
+		cmp al, VK_Z
+		je LUndo
+
+		cmp al, VK_J
+		je LRedo
+
+		cmp al, VK_UP
+		je LOrderUp
+
+		cmp al, VK_DOWN
+		je LOrderDown
+
 		jmp END_PROC
 
 		Increase :
@@ -74,6 +93,26 @@ include \masm32\include\user32.inc
 
 		BucketTool:
 			mov DWORD PTR [selectedTool], 5
+			jmp END_PROC
+
+		LUndo: 
+			call Undo
+			call UpdateLayers
+			jmp END_PROC
+
+		LRedo: 
+			call Redo
+			call UpdateLayers
+			jmp END_PROC
+
+		LOrderUp:
+			call ReorderLayerUp
+			call UpdateLayers
+			jmp END_PROC
+
+		LOrderDown:
+			call ReorderLayerDown
+			call UpdateLayers
 			jmp END_PROC
 
 		END_PROC: 

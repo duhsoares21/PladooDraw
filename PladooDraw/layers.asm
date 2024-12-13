@@ -10,6 +10,8 @@ include \masm32\include\kernel32.inc
 EXTERN AddLayer: PROC
 EXTERN SetLayer: PROC
 EXTERN LayersCount: PROC
+EXTERN AddLayerButton: PROC
+EXTERN UpdateLayerPreview: PROC
 
 .DATA                
     ClassName db "LayerWindowClass",0                 
@@ -28,7 +30,8 @@ EXTERN LayersCount: PROC
     screenWidth DWORD 0
     screenHeight DWORD 0
 
-    btnHeight DWORD 30
+
+    btnHeight DWORD 90
 
     hDefaultCursor HCURSOR ?
     
@@ -36,7 +39,7 @@ EXTERN LayersCount: PROC
     layerCount DWORD ? 
     hBitmaps DWORD ?
 
-    hLayerButtons HWND ? 
+    hLayerButtons HWND ?
     hControlButtons HWND ?
 
     BtnLayerLabel db "Layer %d", 0
@@ -168,40 +171,47 @@ EXTERN LayersCount: PROC
         
             invoke SetWindowLong, hWnd, GWL_STYLE, dwStyle
 
-            invoke wsprintfA, offset msgText, offset BtnLayerLabel, layerID
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 0, 120, btnHeight, hWnd, layerID, hLayerInstance, NULL 
-            mov [hLayerButtons + edx * SIZEOF DWORD], eax
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, 0, 120, btnHeight, hWnd, layerID, hLayerInstance, NULL 
+            mov [hLayerButtons + 0 * SIZEOF DWORD], eax
 
-            invoke GetClientRect, hWnd, addr rect
+            push eax
+            call AddLayerButton
+
+            invoke GetClientRect, hWnd, addr rect   
 
             mov eax, rect.bottom
             sub eax, 60
             mov screenHeight, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, 120, 30, hWnd, 1001, hLayerInstance, NULL 
-            mov [hLayerButtons + 0 * SIZEOF DWORD], eax
+            mov [hControlButtons + 0 * SIZEOF DWORD], eax
         
             mov eax, screenHeight
             add eax, 30
             mov screenHeight, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDelete, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, 120, 30, hWnd, 1002, hLayerInstance, NULL 
-            mov [hLayerButtons + 1 * SIZEOF DWORD], eax
+            mov [hControlButtons + 1 * SIZEOF DWORD], eax
 
             ret
         .ELSEIF uMsg == WM_COMMAND
             .IF wParam == 1001
+                push 0
                 call AddLayer
                 
                 inc layerID
 
-                mov eax, btnHeight 
+                mov eax, btnHeight  
                 mul layerID
                 mov ebx, eax
             
-                invoke wsprintfA, offset msgText, offset BtnLayerLabel, layerID
-                invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, ebx, 120, btnHeight, hWnd, layerID, hLayerInstance, NULL 
+                invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, ebx, 120, btnHeight, hWnd, layerID, hLayerInstance, NULL 
+                mov edx, layerID
+
                 mov [hLayerButtons + edx * SIZEOF DWORD], eax
+
+                push eax
+                call AddLayerButton
 
                 invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
             .ELSE 
@@ -209,14 +219,13 @@ EXTERN LayersCount: PROC
                 call SetLayer
             .ENDIF
             
-            ret
+            ret            
         .ELSE
             invoke DefWindowProc,hWnd,uMsg,wParam,lParam
             ret
         .ENDIF
 
         ret
-
     LayerWndProc endp
 
     End

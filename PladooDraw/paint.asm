@@ -22,6 +22,7 @@ EXTERN RectangleTool:proc
 EXTERN BrushTool:proc
 EXTERN EraserTool:proc
 EXTERN RenderLayers:proc
+EXTERN UpdateLayers:proc
 EXTERN Cleanup:proc
 
 RepositionLayerToolbar proto :DWORD,:DWORD,:DWORD,:DWORD
@@ -275,7 +276,7 @@ WinMain proc
             mov byte ptr [isMouseDown], 0
 
             call handleMouseUp
-            call RenderLayers
+            call UpdateLayers
 
         .ELSEIF uMsg==WM_MOUSEMOVE
                 
@@ -322,7 +323,7 @@ TEraser Proc hWnd:HWND, x:DWORD, y:DWORD, localBrushSize:DWORD
 TEraser endp
 
 TBrush Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF, localBrushSize:DWORD
-
+    
     push localBrushSize
     push localColor
     push y
