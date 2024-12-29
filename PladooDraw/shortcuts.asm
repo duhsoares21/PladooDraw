@@ -63,12 +63,17 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
 		jmp END_PROC
 
+		ApplyDecrease :
+				dec DWORD PTR [brushSize]
+				jmp END_PROC
+
 		Increase :
 			inc DWORD PTR [brushSize]
 			jmp END_PROC
 
 		Decrease :
-			dec DWORD PTR [brushSize]
+			cmp DWORD PTR [brushSize], 1
+			jg ApplyDecrease
 			jmp END_PROC
 
 		Eraser :

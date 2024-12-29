@@ -11,7 +11,7 @@ EXTERN AddLayer: PROC
 EXTERN SetLayer: PROC
 EXTERN LayersCount: PROC
 EXTERN AddLayerButton: PROC
-EXTERN UpdateLayerPreview: PROC
+EXTERN InitializeLayers: PROC
 
 .DATA                
     ClassName db "LayerWindowClass",0                 
@@ -142,10 +142,13 @@ EXTERN UpdateLayerPreview: PROC
         
         mov hWndLayer, eax
 
+        push hWndLayer
+        call InitializeLayers
+
         mov ecx, hWnd
         mov mainHwnd, ecx
         
-        invoke ShowWindow,hWndLayer,SW_SHOWDEFAULT
+        invoke ShowWindow,hWndLayer,SW_SHOWDEFAULT  
         invoke UpdateWindow, hWndLayer
            
         ret
@@ -196,7 +199,6 @@ EXTERN UpdateLayerPreview: PROC
             ret
         .ELSEIF uMsg == WM_COMMAND
             .IF wParam == 1001
-                push 0
                 call AddLayer
                 
                 inc layerID

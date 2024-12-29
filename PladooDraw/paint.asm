@@ -250,13 +250,6 @@ WinMain proc
 
         .ELSEIF uMsg==WM_LBUTTONDOWN               
 
-            .IF DWORD PTR [selectedTool] == 5
-                invoke GetDC, hWnd
-                mov mainHdc, eax
-
-                invoke TBucket, hWnd, mainHdc, DWORD PTR [color]
-            .ENDIF
-
             mov eax, lParam
             and eax, 0FFFFh          
             mov xInitial, eax        
@@ -264,6 +257,13 @@ WinMain proc
             mov eax, lParam
             shr eax, 16              
             mov yInitial, eax
+
+            .IF DWORD PTR [selectedTool] == 5
+                invoke GetDC, hWnd
+                mov mainHdc, eax
+
+                invoke TBucket, hWnd, mainHdc, DWORD PTR [color]
+            .ENDIF
                 
             mov byte ptr [isMouseDown], 1
 
