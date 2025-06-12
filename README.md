@@ -5,7 +5,9 @@
 ```markdown
 # 🖌️ PladooDraw - Aplicativo de Desenho Estilo Paint Clássico
 
-Aplicativo simples de desenho, inspirado no Paint clássico do Windows, construído em C++ com uso do Windows SDK e elementos em Assembly.
+Aplicativo simples de desenho, inspirado no Paint clássico do Windows, construído em Assembly com uso do Windows SDK.
+
+A aplicação utiliza uma DLL externa desenvolvida em C++ com Direct2D para parte gráfica: https://github.com/duhsoares21/PladooDraw_Direct2D_LayerSystem
 
 ## ⚙️ Tecnologias
 - C++
