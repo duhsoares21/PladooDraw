@@ -132,7 +132,7 @@ EXTERN InitializeLayers: PROC
         ADDR AppName,\
         WS_CHILD or WS_VISIBLE or CCS_VERT or TBSTYLE_TOOLTIPS or TBSTYLE_FLAT,\
         screenWidth,\
-        0,\
+        0,\ 
         120,\
         screenHeight,\
         hWnd,\

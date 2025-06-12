@@ -2,7 +2,7 @@
 .model flat,stdcall
 option casemap:none
 
-include \masm32\include\windows.inc
+include \masm32\include\windows.inc 
 include \masm32\include\user32.inc
 include \masm32\include\gdi32.inc
 include \masm32\include\kernel32.inc
@@ -11,6 +11,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
 EXTERN Initialize:proc
 WinMain proto
+WinDocument proto :HWND
 WinTool proto :HWND
 WinLayer proto :HWND
 
@@ -18,7 +19,7 @@ WinLayer proto :HWND
     PUBLIC windowTitleInformation
     windowTitleInformation db "INFORMATION", 0
 
-    PUBLIC windowTitleError
+    PUBLIC windowTitleError 
     windowTitleError db "ERROR", 0
     
     PUBLIC msgText
@@ -54,17 +55,21 @@ WinLayer proto :HWND
     yInitial DWORD ?
 
     mainHwnd HWND ?
+    docHwnd HWND ?
 
 .CODE                
     start:
         
         invoke WinMain    
         mov mainHwnd, eax
-        
+
         invoke WinTool, mainHwnd
         invoke WinLayer, mainHwnd
-
-        push mainHwnd
+        
+        invoke WinDocument, mainHwnd
+        mov docHwnd, eax
+        
+        push docHwnd
         call Initialize
                 
         .WHILE TRUE                                               

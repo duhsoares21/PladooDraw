@@ -32,7 +32,8 @@ TBucket proto :HWND,:HDC,:COLORREF
 
 .DATA 
 
-    ClassName db "MainWindowClass",0                 
+    ClassName db "MainWindowClass",0   
+    DocClassName db "DocWindowClass",0   
     AppName db "Pladoo Draw",0 
 
     EXTERN isMouseDown:BYTE
@@ -44,8 +45,11 @@ TBucket proto :HWND,:HDC,:COLORREF
     EXTERN xInitial:DWORD
     EXTERN yInitial:DWORD
 
-    EXTERN msgText:BYTE
-	EXTERN msgFmt:BYTE
+    ;EXTERN msgText:BYTE
+	;EXTERN msgFmt:BYTE
+
+    msgFmt db "Data: %d", 0
+    msgText db 256 dup(0)
 
     EXTERN windowTitleInformation:BYTE
 	EXTERN windowTitleError:BYTE
@@ -77,6 +81,7 @@ TBucket proto :HWND,:HDC,:COLORREF
     hBucketCursor HCURSOR ?
 
     hMainInstance HINSTANCE ?
+    hDocInstance HINSTANCE ?     
 
     screenWidth DWORD 0
     screenHeight DWORD 0
@@ -114,7 +119,7 @@ WinMain proc
             
         mov wc.cbSize,SIZEOF WNDCLASSEX                           
         mov wc.style, CS_HREDRAW or CS_VREDRAW
-        mov wc.lpfnWndProc, OFFSET WndProc
+        mov wc.lpfnWndProc, OFFSET WndMainProc
 
         invoke GetModuleHandle, NULL            
         mov wc.hInstance, eax
@@ -122,7 +127,7 @@ WinMain proc
 
         xor eax, eax
 
-        mov wc.hbrBackground,0
+        mov wc.hbrBackground,1
         mov wc.lpszMenuName,NULL
         mov wc.lpszClassName,OFFSET ClassName
             
@@ -179,12 +184,140 @@ WinMain proc
         ret 
     WinMain endp
 
-    WndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM       
-        LOCAL dwStyle:DWORD
+    WinDocument proc hWnd:HWND
         LOCAL rect:RECT
-        LOCAL mousePosition:POINT
-                        
-        .IF uMsg==WM_DESTROY                               
+        LOCAL wc:WNDCLASSEX                                         
+        LOCAL msg:MSG
+        LOCAL hwndDocument:HWND
+
+        LOCAL documentWidth:DWORD
+        LOCAL documentHeight:DWORD
+
+        LOCAL halfScreenWidth:DWORD
+        LOCAL halfScreenHeight:DWORD
+
+        LOCAL halfDocumentWidth:DWORD
+        LOCAL halfDocumentHeight:DWORD
+
+        LOCAL centerX: DWORD
+        LOCAL centerY: DWORD
+
+        mov documentWidth, 512
+        mov documentHeight, 512
+
+        invoke GetClientRect, hWnd, addr rect
+
+        mov eax, rect.right
+        mov screenWidth, eax
+
+        mov eax, rect.bottom
+        mov screenHeight, eax
+
+        mov eax, 0
+
+        mov color, 00000000h
+            
+        mov wc.cbSize,SIZEOF WNDCLASSEX                           
+        mov wc.style, CS_HREDRAW or CS_VREDRAW
+        mov wc.lpfnWndProc, OFFSET WndDocProc
+
+        invoke GetModuleHandle, NULL            
+        mov wc.hInstance, eax
+        mov hDocInstance, eax
+
+        xor eax, eax
+
+        mov wc.hbrBackground,0
+        mov wc.lpszMenuName,NULL
+        mov wc.lpszClassName,OFFSET DocClassName
+
+        invoke LoadIcon,NULL,IDI_APPLICATION
+
+        mov wc.hIcon,eax
+        mov wc.hIconSm,eax      
+        
+        mov edx, 0
+        mov eax, screenWidth
+        mov ecx, 2
+        div ecx
+
+        mov halfScreenWidth, eax
+
+        mov eax, 0
+
+        mov edx, 0
+        mov eax, screenHeight
+        mov ecx, 2
+        div ecx
+
+        mov halfScreenHeight, eax
+
+        mov eax, 0
+
+        mov edx, 0
+        mov eax, documentWidth
+        mov ecx, 2
+        div ecx
+
+        mov halfDocumentWidth, eax
+
+        mov eax, 0
+
+        mov edx, 0
+        mov eax, documentHeight
+        mov ecx, 2
+        div ecx
+
+        mov halfDocumentHeight, eax
+
+        mov eax, 0
+
+        mov eax, halfScreenWidth
+        mov ebx, halfDocumentWidth
+        sub eax, ebx
+
+        mov centerX, eax
+
+        mov eax, 0
+
+        mov eax, halfScreenHeight
+        mov ebx, halfDocumentHeight
+        sub eax, ebx
+
+        mov centerY, eax
+
+        mov eax, 0
+
+        invoke RegisterClassEx, addr wc
+
+        invoke CreateWindowEx, 
+        NULL, 
+        ADDR DocClassName, 
+        ADDR AppName, 
+        WS_CHILD or WS_VISIBLE, 
+        centerX, 
+        centerY, 
+        documentWidth, 
+        documentHeight, 
+        hWnd, 
+        NULL, 
+        hDocInstance, 
+        NULL
+
+        mov hwndDocument, eax
+
+        invoke ShowWindow,hwndDocument,SW_SHOW
+        invoke UpdateWindow, hwndDocument
+        
+        mov eax, hwndDocument
+        
+        ret 
+    WinDocument endp
+
+    WndMainProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
+        LOCAL dwStyle:DWORD
+
+        .IF uMsg==WM_DESTROY
                 
             call Cleanup
             invoke PostQuitMessage,NULL
@@ -239,8 +372,19 @@ WinMain proc
             .ENDIF
 
             ret
+        .ELSE
+            invoke DefWindowProc,hWnd,uMsg,wParam,lParam
+            ret
+        .ENDIF
 
-        .ELSEIF uMsg==WM_KEYDOWN
+        xor eax,eax
+    WndMainProc endp
+
+    WndDocProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM       
+        LOCAL rect:RECT
+        LOCAL mousePosition:POINT
+                        
+        .IF uMsg==WM_KEYDOWN
                 
             push wParam
             push hWnd
@@ -276,7 +420,7 @@ WinMain proc
             mov byte ptr [isMouseDown], 0
 
             call handleMouseUp
-            call UpdateLayers
+            ;call UpdateLayers
 
         .ELSEIF uMsg==WM_MOUSEMOVE
                 
@@ -293,7 +437,7 @@ WinMain proc
             cmp byte ptr [isMouseDown], 1
             jne LEndProc
 
-            cmp DWORD PTR [selectedTool], 5
+            cmp DWORD PTR [selectedTool], 5 
             je LEndProc
             
             call RenderLayers
@@ -310,7 +454,7 @@ WinMain proc
 
         END_PROC:
         ret
-    WndProc endp
+    WndDocProc endp
 
 TEraser Proc hWnd:HWND, x:DWORD, y:DWORD, localBrushSize:DWORD
         
@@ -335,7 +479,7 @@ TBrush endp
 
 TRectangle Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF
     
-    push localColor
+    push localColor 
     push y
     push x
     push yInitial
