@@ -10,13 +10,11 @@ Aplicativo simples de desenho, inspirado no Paint clássico do Windows, constru�
 A aplicação utiliza uma DLL externa desenvolvida em C++ com Direct2D para parte gráfica: https://github.com/duhsoares21/PladooDraw_Direct2D_LayerSystem
 
 ## ⚙️ Tecnologias
-- C++
 - Win32 API
-- Assembly (alguns trechos otimizados)
+- Assembly
 
 ## 🖥️ Funcionalidades
-- Ferramentas básicas de desenho: lápis, formas, cores
-- Suporte a múltiplas resoluções
+- Ferramentas básicas de desenho: lápis, formas, cores, pincel e balde de tinta(falta otimizar)
 - Interface retrô inspirada em softwares antigos
 
 ## 🔧 Compilação
