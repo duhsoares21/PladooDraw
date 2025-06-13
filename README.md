@@ -3,7 +3,7 @@
 ### 📁 Projeto: [PladooDraw](https://github.com/duhsoares21/PladooDraw)
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/c8f317f4-c604-4c17-9d72-c0ad32106388" alt="Screenshot" width="80%">
+  <img src="https://github.com/user-attachments/assets/c8f317f4-c604-4c17-9d72-c0ad32106388" alt="Screenshot" width="100%">
 </p>
 
 ```markdown
