@@ -420,7 +420,6 @@ WinMain proc
             mov byte ptr [isMouseDown], 0
 
             call handleMouseUp
-            ;call UpdateLayers
 
         .ELSEIF uMsg==WM_MOUSEMOVE
                 

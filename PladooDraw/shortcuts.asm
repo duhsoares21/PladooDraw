@@ -103,12 +103,14 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
 		LUndo: 
 			call Undo
-			;call UpdateLayers
+			call UpdateLayers
+			call RenderLayers
 			jmp END_PROC
 
 		LRedo: 
 			call Redo
-			;call UpdateLayers
+			call UpdateLayers
+			call RenderLayers
 			jmp END_PROC
 
 		LOrderUp:
