@@ -2,8 +2,7 @@
 
 ### 📁 Projeto: [PladooDraw](https://github.com/duhsoares21/PladooDraw)
 
-![Screenshot](https://github.com/user-attachments/assets/c8f317f4-c604-4c17-9d72-c0ad32106388)
-<img src="https://github.com/user-attachments/assets/c8f317f4-c604-4c17-9d72-c0ad32106388" alt="Screenshot" width="50%">
+<img src="https://github.com/user-attachments/assets/c8f317f4-c604-4c17-9d72-c0ad32106388" alt="Screenshot" width="80%">
 
 ```markdown
 # 🖌️ PladooDraw - Aplicativo de Desenho Estilo Paint Clássico
