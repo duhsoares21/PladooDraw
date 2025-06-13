@@ -14,7 +14,7 @@ A aplicação utiliza uma DLL externa desenvolvida em C++ com Direct2D para part
 - Assembly
 
 ## 🖥️ Funcionalidades
-- Ferramentas básicas de desenho: lápis, formas, cores, pincel e balde de tinta(falta otimizar)
+- Ferramentas básicas de desenho: lápis, formas, cores, pincel e balde de tinta
 - Interface retrô inspirada em softwares antigos
 
 ## 🔧 Compilação
