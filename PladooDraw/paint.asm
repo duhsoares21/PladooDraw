@@ -35,6 +35,7 @@ TBucket proto :HWND,:HDC,:COLORREF
     ClassName db "MainWindowClass",0   
     DocClassName db "DocWindowClass",0   
     AppName db "Pladoo Draw",0 
+    AppNameDoc db "Pladoo Draw Document",0 
 
     EXTERN isMouseDown:BYTE
     EXTERN brushSize:DWORD
@@ -114,6 +115,7 @@ WinMain proc
         LOCAL wc:WNDCLASSEX                                         
         LOCAL msg:MSG
         LOCAL hwnd:HWND
+        LOCAL workArea: RECT
 
         mov color, 00000000h
             
@@ -176,7 +178,10 @@ WinMain proc
 
         mov hwnd, eax
 
-        invoke ShowWindow,hwnd,SW_SHOWMAXIMIZED
+        invoke SystemParametersInfo, SPI_GETWORKAREA, 0, addr workArea, 0
+        invoke SetWindowPos, hwnd, NULL, workArea.left, workArea.top, workArea.right, workArea.bottom, SWP_NOZORDER
+
+        invoke ShowWindow,hwnd,SW_SHOW
         invoke UpdateWindow, hwnd
         
         mov eax, hwnd
@@ -291,17 +296,17 @@ WinMain proc
         invoke RegisterClassEx, addr wc
 
         invoke CreateWindowEx, 
-        NULL, 
-        ADDR DocClassName, 
-        ADDR AppName, 
-        WS_CHILD or WS_VISIBLE, 
-        centerX, 
-        centerY, 
-        documentWidth, 
-        documentHeight, 
-        hWnd, 
-        NULL, 
-        hDocInstance, 
+        NULL,\ 
+        ADDR DocClassName,\ 
+        ADDR AppNameDoc,\ 
+        WS_CHILD or WS_VISIBLE,\ 
+        centerX,\ 
+        centerY,\ 
+        documentWidth,\ 
+        documentHeight,\ 
+        hWnd,\ 
+        NULL,\ 
+        hDocInstance,\ 
         NULL
 
         mov hwndDocument, eax

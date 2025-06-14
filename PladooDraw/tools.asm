@@ -71,6 +71,7 @@ include \masm32\include\kernel32.inc
     
     WinTool proc hWnd:HWND    
         LOCAL hWndToolbar:HWND
+        LOCAL rect:RECT
 
         LOCAL wc:WNDCLASSEX                                         
         LOCAL msg:MSG
@@ -101,15 +102,15 @@ include \masm32\include\kernel32.inc
         
         invoke RegisterClassEx, addr wc
 
-        invoke GetSystemMetrics, SM_CYSCREEN
-        sub eax, 40
+        invoke GetClientRect, hWnd, addr rect
+        mov eax, rect.bottom
         mov screenHeight, eax
 
         invoke CreateWindowEx,
         NULL,\
         ADDR ClassName,\
         ADDR AppName,\
-        WS_CHILD or WS_VISIBLE or CCS_VERT or TBSTYLE_TOOLTIPS or TBSTYLE_FLAT,\
+        WS_CHILD or WS_VISIBLE or WS_BORDER,\
         0,\
         0,\
         120,\

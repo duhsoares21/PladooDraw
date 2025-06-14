@@ -130,7 +130,7 @@ EXTERN InitializeLayers: PROC
         NULL,\
         ADDR ClassName,\
         ADDR AppName,\
-        WS_CHILD or WS_VISIBLE or CCS_VERT or TBSTYLE_TOOLTIPS or TBSTYLE_FLAT,\
+        WS_CHILD or WS_VISIBLE or WS_BORDER,\
         screenWidth,\
         0,\ 
         120,\

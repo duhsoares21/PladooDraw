@@ -26,7 +26,7 @@ WinLayer proto :HWND
     msgText db 256 dup(0)
     
     PUBLIC msgFmt
-    msgFmt db "X: %d, Y: %d", 0         
+    msgFmt db "Error code: 0x%08X", 0         
 
     formatRect db "L: %d, T: %d, R: %d, B: %d", 0
     
