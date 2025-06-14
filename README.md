@@ -2,10 +2,14 @@
 
 ### 📁 Projeto: [PladooDraw](https://github.com/duhsoares21/PladooDraw)
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/c8f317f4-c604-4c17-9d72-c0ad32106388" alt="Screenshot" width="100%">
+</p>
+
 ```markdown
 # 🖌️ PladooDraw - Aplicativo de Desenho Estilo Paint Clássico
 
-Aplicativo simples de desenho, inspirado no Paint clássico do Windows, construído em Assembly com uso do Windows SDK.
+Aplicativo de desenho, inspirado no Paint clássico do Windows, construído em Assembly com uso do Windows SDK.
 
 A aplicação utiliza uma DLL externa desenvolvida em C++ com Direct2D para parte gráfica: https://github.com/duhsoares21/PladooDraw_Direct2D_LayerSystem
 
