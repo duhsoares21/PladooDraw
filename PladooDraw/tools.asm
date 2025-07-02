@@ -6,33 +6,40 @@ include \masm32\include\windows.inc
 include \masm32\include\user32.inc
 include \masm32\include\gdi32.inc
 include \masm32\include\kernel32.inc
+include \masm32\include\comdlg32.inc
 
 .DATA                
     ClassName db "ToolbarWindowClass",0                 
     AppName db "Tool Window",0                 
 
-    szButtonBrush db "Brush (B)", 0
-    szButtonRectangle db "Rectangle (R)", 0
-    szButtonEllipse db "Ellipse (C)", 0
-    szButtonLine db "Line (L)", 0
-    szButtonBucket db "Bucket (F)", 0
-    szButtonEraser db "Eraser (E)", 0
+    szButtonBrush db "(B)", 0
+    szButtonRectangle db "(R)", 0
+    szButtonEllipse db "(E)", 0
+    szButtonLine db "(L)", 0
+    szButtonBucket db "(P)", 0
+    szButtonEraser db "(D)", 0
 
-    szButtonRed db "Red", 0
-    szButtonBlue db "Blue", 0
-    szButtonYellow db "Yellow", 0
-    szButtonGreen db "Green", 0
-    szButtonBlack db "Black", 0
-    szButtonWhite db "White", 0
-    szButtonPurple db "Purple", 0
-    szButtonOrange db "Orange", 0
+    ID_ICON_BRUSH db "./icons/brush.ico", 0
+    ID_ICON_RECTANGLE db "./icons/rectangle.ico", 0
+    ID_ICON_ELLIPSE db "./icons/ellipse.ico", 0
+    ID_ICON_LINE db "./icons/line.ico", 0
+    ID_ICON_PAINT_BUCKET db "./icons/paint_bucket.ico", 0
+    ID_ICON_ERASER db "./icons/eraser.ico", 0
     
+    hIconBrush      HICON ?
+    hIconRectangle      HICON ?
+    hIconEllipse      HICON ?
+    hIconLine      HICON ?
+    hIconPaintBucket      HICON ?
+    hIconEraser      HICON ?
+
     szButtonClass db "BUTTON", 0
     szNotification db "Notification", 0
     szButtonClicked db "Clicked", 0
 
     hColorButtons HWND 9 DUP(?)
-
+    customColors     dd 16 dup(0)
+    
     screenWidth DWORD 0
     screenHeight DWORD 0
 
@@ -46,6 +53,19 @@ include \masm32\include\kernel32.inc
     EXTERN windowTitleInformation:BYTE
 	EXTERN windowTitleError:BYTE
 
+    CHOOSECOLOR STRUCT
+        lStructSize      DWORD ?
+        hwndOwner        HWND  ?
+        hInstance        HINSTANCE ?
+        rgbResult        COLORREF ?
+        lpCustColors     DWORD ?
+        Flags            DWORD ?
+        lCustData        DWORD ?
+        lpfnHook         DWORD ?
+        lpTemplateName   DWORD ?
+    CHOOSECOLOR ENDS
+
+
 .DATA?           
 
     mainWindowHwnd HWND ?
@@ -55,15 +75,6 @@ include \masm32\include\kernel32.inc
     hDefaultCursor HCURSOR ?
 
     hToolButtons HWND ?
-
-    hRedBrush HBRUSH ? 
-    hBlueBrush HBRUSH ? 
-    hYellowBrush HBRUSH ? 
-    hGreenBrush HBRUSH ? 
-    hPurpleBrush HBRUSH ? 
-    hOrangeBrush HBRUSH ? 
-    hBlackBrush HBRUSH ? 
-    hWhiteBrush HBRUSH ?
 
     hdc HDC ?
 
@@ -136,6 +147,7 @@ include \masm32\include\kernel32.inc
         LOCAL rect:RECT
         LOCAL hwndButton: HWND
         LOCAL hBrush:HBRUSH
+        LOCAL cc:CHOOSECOLOR
                                 
         .IF uMsg==WM_DESTROY                               
 
@@ -154,51 +166,65 @@ include \masm32\include\kernel32.inc
 
             ;Tools Buttons
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonBrush, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 0, 120, 30, hWnd, 1, hToolInstance, NULL 
+            ;Brush Tool
+            invoke LoadImage, NULL, OFFSET ID_ICON_BRUSH, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            mov hIconBrush, eax
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonBrush, WS_CHILD or WS_VISIBLE or BS_ICON, 0, 0, 60, 30, hWnd, 1, hToolInstance, NULL 
             mov [hToolButtons + 0 * SIZEOF DWORD], eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonRectangle, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 30, 120, 30, hWnd, 2, hToolInstance, NULL
+            invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconBrush
+
+            ;Rectangle Tool
+            invoke LoadImage, NULL, OFFSET ID_ICON_RECTANGLE, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            mov hIconRectangle, eax
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonRectangle, WS_CHILD or WS_VISIBLE or BS_ICON, 60, 0, 60, 30, hWnd, 2, hToolInstance, NULL
             mov [hToolButtons + 1 * SIZEOF DWORD], eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonEllipse, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 60, 120, 30, hWnd, 3, hToolInstance, NULL
+            invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconRectangle
+
+            ;Ellipse Tool
+            invoke LoadImage, NULL, OFFSET ID_ICON_ELLIPSE, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            mov hIconEllipse, eax
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonEllipse, WS_CHILD or WS_VISIBLE or BS_ICON, 0, 30, 60, 30, hWnd, 3, hToolInstance, NULL
             mov [hToolButtons + 2 * SIZEOF DWORD], eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonLine, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 90, 120, 30, hWnd, 4, hToolInstance, NULL
+            invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconEllipse
+
+            ;Line Tool
+            invoke LoadImage, NULL, OFFSET ID_ICON_LINE, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            mov hIconLine, eax
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonLine, WS_CHILD or WS_VISIBLE or BS_ICON, 60, 30, 60, 30, hWnd, 4, hToolInstance, NULL
             mov [hToolButtons + 3 * SIZEOF DWORD], eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonBucket, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 120, 120, 30, hWnd, 5, hToolInstance, NULL
+            invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconLine
+
+            ;Paint Bucket Tool
+            
+            invoke LoadImage, NULL, OFFSET ID_ICON_PAINT_BUCKET, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            mov hIconPaintBucket, eax
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonBucket, WS_CHILD or WS_VISIBLE or BS_ICON, 0, 60, 60, 30, hWnd, 5, hToolInstance, NULL
             mov [hToolButtons + 4 * SIZEOF DWORD], eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonEraser, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 150, 120, 30, hWnd, 0, hToolInstance, NULL
+            invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconPaintBucket
+
+            ;Eraser Tool
+
+            invoke LoadImage, NULL, OFFSET ID_ICON_ERASER, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            mov hIconEraser, eax
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonEraser, WS_CHILD or WS_VISIBLE or BS_ICON, 60, 60, 60, 30, hWnd, 0, hToolInstance, NULL
             mov [hToolButtons + 5 * SIZEOF DWORD], eax
+
+            invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconEraser
 
             ;Colors Buttons
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, NULL, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 0, 210, 60, 30, hWnd, 100, hToolInstance, NULL 
-            mov [hColorButtons + 0 * SIZEOF DWORD], eax
-
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonBlue, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 60, 210, 60, 30, hWnd, 101, hToolInstance, NULL 
-            mov [hColorButtons + 1 * SIZEOF DWORD], eax
-
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonYellow, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 0, 240, 60, 30, hWnd, 102, hToolInstance, NULL 
-            mov [hColorButtons + 2 * SIZEOF DWORD], eax
-
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonGreen, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 60, 240, 60, 30, hWnd, 103, hToolInstance, NULL 
-            mov [hColorButtons + 3 * SIZEOF DWORD], eax
-
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonPurple, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 0, 270, 60, 30, hWnd, 104, hToolInstance, NULL 
-            mov [hColorButtons + 4 * SIZEOF DWORD], eax
-
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonOrange, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 60, 270, 60, 30, hWnd, 105, hToolInstance, NULL 
-            mov [hColorButtons + 5 * SIZEOF DWORD], eax
-                
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonBlack, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 0, 300, 60, 30, hWnd, 106, hToolInstance, NULL 
-            mov [hColorButtons + 6 * SIZEOF DWORD], eax
-            
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonWhite, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 60, 300, 60, 30, hWnd, 107, hToolInstance, NULL 
-            mov [hColorButtons + 7 * SIZEOF DWORD], eax
-
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, NULL, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 0, 330, 120, 30, hWnd, 108, hToolInstance, NULL 
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, NULL, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 0, 90, 120, 30, hWnd, 108, hToolInstance, NULL 
             mov [hColorButtons + 8 * SIZEOF DWORD], eax
             mov hwndButton, eax
 
@@ -279,7 +305,26 @@ include \masm32\include\kernel32.inc
 
                     invoke SetFocus, mainWindowHwnd
 
-                .ENDIF               
+                .ENDIF
+                
+                .IF wParam == 108
+                    invoke RtlZeroMemory, addr cc, sizeof CHOOSECOLOR
+                    mov cc.lStructSize, sizeof CHOOSECOLOR
+                    mov eax, hWnd
+                    mov cc.hwndOwner, eax
+                    mov eax, color
+                    mov cc.rgbResult, eax
+                    mov cc.lpCustColors, OFFSET customColors
+                    mov cc.Flags, CC_RGBINIT or CC_FULLOPEN
+
+                    invoke ChooseColor, addr cc
+                    .IF eax != 0
+                        mov eax, cc.rgbResult
+                        mov color, eax
+                        invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
+                        invoke SetFocus, mainWindowHwnd
+                    .ENDIF
+                .ENDIF
 
                 invoke SetFocus, hWnd
 
