@@ -8,6 +8,8 @@ include \masm32\include\gdi32.inc
 include \masm32\include\kernel32.inc
 include \masm32\include\comdlg32.inc
 
+includelib PladooDraw_Direct2D_LayerSystem.lib
+
 .DATA                
     ClassName db "ToolbarWindowClass",0                 
     AppName db "Tool Window",0                 
@@ -18,6 +20,8 @@ include \masm32\include\comdlg32.inc
     szButtonLine db "(L)", 0
     szButtonBucket db "(P)", 0
     szButtonEraser db "(D)", 0
+    szButtonSave db "Save (S)", 0
+    szButtonLoad db "Load (K)", 0
 
     ID_ICON_BRUSH db "./icons/brush.ico", 0
     ID_ICON_RECTANGLE db "./icons/rectangle.ico", 0
@@ -43,6 +47,9 @@ include \masm32\include\comdlg32.inc
     screenWidth DWORD 0
     screenHeight DWORD 0
 
+    pddFilter db "Paint Document (*.pdd)", 0, "*.pdd", 0, 0
+    defaultExt db "pdd", 0
+
     EXTERN selectedTool:DWORD
     EXTERN brushSize:DWORD
     EXTERN color:COLORREF
@@ -52,6 +59,15 @@ include \masm32\include\comdlg32.inc
 
     EXTERN windowTitleInformation:BYTE
 	EXTERN windowTitleError:BYTE
+
+    EXTERN btnHeight:DWORD
+    EXTERN layerID:DWORD
+
+    ;EXTERN SaveProjectDll:proc
+    ;EXTERN LoadProjectDll:proc
+
+    SaveProjectDll PROTO STDCALL :PTR BYTE
+    LoadProjectDll PROTO STDCALL :PTR BYTE, :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
 
     CHOOSECOLOR STRUCT
         lStructSize      DWORD ?
@@ -76,9 +92,71 @@ include \masm32\include\comdlg32.inc
 
     hToolButtons HWND ?
 
+    unicode_filename WCHAR MAX_PATH dup(?)
+
+    EXTERN hLayerButtons:HWND
+    EXTERN hWndLayer:HWND
+    EXTERN hLayerInstance:HINSTANCE
+
     hdc HDC ?
 
+    saveFilePath db MAX_PATH dup(?)
+    ofn           OPENFILENAME <>
+
+    openFilePath db MAX_PATH dup(0)
+    ofnOpen       OPENFILENAME <>
+
 .CODE          
+
+    SaveFileDialog PROC
+        ; Zera a estrutura OPENFILENAME
+        invoke RtlZeroMemory, addr ofn, sizeof ofn
+
+        ; Configura o OPENFILENAME
+        mov ofn.lStructSize, sizeof ofn
+        push mainWindowHwnd
+        pop ofn.hwndOwner
+        mov ofn.lpstrFile, offset saveFilePath
+        mov ofn.nMaxFile, MAX_PATH
+        mov ofn.lpstrFilter, offset pddFilter
+        mov ofn.Flags, OFN_OVERWRITEPROMPT or OFN_PATHMUSTEXIST
+        mov ofn.lpstrDefExt, offset defaultExt
+
+        mov byte ptr [saveFilePath], 0
+
+        ; Chama o diálogo
+        invoke GetSaveFileName, addr ofn
+        .if eax != 0
+            ;push offset saveFilePath
+            ;call SaveProjectDll
+
+            invoke SaveProjectDll, addr saveFilePath
+        .endif
+
+        ret
+    SaveFileDialog ENDP
+
+LoadFileDialog PROC
+        invoke RtlZeroMemory, addr ofnOpen, sizeof ofnOpen
+
+        mov ofnOpen.lStructSize, sizeof ofnOpen
+        push mainWindowHwnd
+        pop ofnOpen.hwndOwner
+        mov ofnOpen.lpstrFile, offset openFilePath
+        mov ofnOpen.nMaxFile, MAX_PATH
+        mov ofnOpen.lpstrFilter, offset pddFilter
+        mov ofnOpen.Flags, OFN_FILEMUSTEXIST or OFN_PATHMUSTEXIST
+        mov ofnOpen.lpstrDefExt, offset defaultExt
+
+        invoke GetOpenFileName, addr ofnOpen
+        .if eax != 0
+            ; Mostra o nome do arquivo selecionado
+            invoke LoadProjectDll, addr openFilePath, hWndLayer, hLayerInstance, btnHeight, addr hLayerButtons, addr layerID, addr szButtonClass, addr msgText
+        .endif
+
+        ret
+    LoadFileDialog ENDP
+
     
     WinTool proc hWnd:HWND    
         LOCAL hWndToolbar:HWND
@@ -222,10 +300,19 @@ include \masm32\include\comdlg32.inc
 
             invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconEraser
 
-            ;Colors Buttons
+            ;Color Button
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, NULL, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 0, 90, 120, 30, hWnd, 108, hToolInstance, NULL 
-            mov [hColorButtons + 8 * SIZEOF DWORD], eax
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, NULL, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 0, 90, 120, 30, hWnd, 6, hToolInstance, NULL 
+            mov [hColorButtons + 6 * SIZEOF DWORD], eax
+
+            ;Save Button
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonSave, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 120, 120, 30, hWnd, 7, hToolInstance, NULL
+            mov [hToolButtons + 7 * SIZEOF DWORD], eax
+
+            ;Load Button
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonLoad, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 150, 120, 30, hWnd, 8, hToolInstance, NULL
+            mov [hToolButtons + 8 * SIZEOF DWORD], eax
+
             mov hwndButton, eax
 
             ret
@@ -247,23 +334,7 @@ include \masm32\include\comdlg32.inc
             invoke GetDlgCtrlID, eax
             mov ecx, eax
 
-            .if ecx == 100 
-                mov edx, 000000FFh 
-            .elseif ecx == 101 
-                mov edx, 00FF0000h
-            .elseif ecx == 102 
-                mov edx, 0001BFFFh
-            .elseif ecx == 103 
-                mov edx, 0000FF00h 
-            .elseif ecx == 104 
-                mov edx, 00A53F87h 
-            .elseif ecx == 105 
-                mov edx, 00037DFFh 
-            .elseif ecx == 106 
-                mov edx, 00000000h 
-            .elseif ecx == 107 
-                 mov edx, 00FFFFFFh 
-            .elseif ecx == 108
+            .if ecx == 6
                 mov ecx, color
                 mov edx, ecx
             .endif 
@@ -278,36 +349,7 @@ include \masm32\include\comdlg32.inc
                     invoke SetFocus, mainWindowHwnd
                 .ENDIF
                 
-                .IF wParam >= 100 && wParam <= 107
-                    
-                    ;Colors
-                    .IF wParam == 100
-                        mov edx, 000000FFh          ;Red
-                    .ELSEIF wParam == 101       
-                        mov edx, 00FF0000h          ;Blue
-                    .ELSEIF wParam == 102
-                        mov edx, 0001BFFFh          ;Yellow
-                    .ELSEIF wParam == 103
-                       mov edx, 0000FF00h           ;Green
-                    .ELSEIF wParam == 104
-                       mov edx, 00A53F87h           ;Purple
-                    .ELSEIF wParam == 105
-                       mov edx, 00037DFFh           ;Orange
-                    .ELSEIF wParam == 106
-                       mov edx, 00000000h           ;Black 
-                    .ELSEIF wParam == 107
-                       mov edx, 00FFFFFFh           ;White 
-                    .ENDIF
-
-                    mov DWORD PTR [color], edx
-
-                    invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
-
-                    invoke SetFocus, mainWindowHwnd
-
-                .ENDIF
-                
-                .IF wParam == 108
+                .IF wParam == 6
                     invoke RtlZeroMemory, addr cc, sizeof CHOOSECOLOR
                     mov cc.lStructSize, sizeof CHOOSECOLOR
                     mov eax, hWnd
@@ -324,6 +366,14 @@ include \masm32\include\comdlg32.inc
                         invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
                         invoke SetFocus, mainWindowHwnd
                     .ENDIF
+                .ENDIF
+
+                .IF wParam == 7
+                    invoke SaveFileDialog
+                .ENDIF
+
+                .IF wParam == 8
+                    invoke LoadFileDialog
                 .ENDIF
 
                 invoke SetFocus, hWnd

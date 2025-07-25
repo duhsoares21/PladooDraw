@@ -10,6 +10,8 @@ include \masm32\include\kernel32.inc
 includelib PladooDraw_Direct2D_LayerSystem.lib
 
 EXTERN Initialize:proc
+EXTERN AddLayer:proc
+EXTERN InitializeLayerRenderPreview:proc
 WinMain proto
 WinDocument proto :HWND
 WinTool proto :HWND
@@ -41,6 +43,12 @@ WinLayer proto :HWND
 
     PUBLIC inSession
     inSession dd 0
+
+    PUBLIC zoomFactorW
+    zoomFactorW dd 1
+
+    PUBLIC zoomFactorH
+    zoomFactorH dd 1
     
     msg MSG <>
 
@@ -69,8 +77,12 @@ WinLayer proto :HWND
         invoke WinDocument, mainHwnd
         mov docHwnd, eax
         
+        push zoomFactorH
+        push zoomFactorW
         push docHwnd
         call Initialize
+        call AddLayer
+        call InitializeLayerRenderPreview
                 
         .WHILE TRUE                                               
             invoke GetMessage, ADDR msg,NULL,0,0

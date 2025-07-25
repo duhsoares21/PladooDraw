@@ -24,13 +24,14 @@ EXTERN InitializeLayers: PROC
     szButtonUp db "UP", 0
     szButtonDown db "DOWN", 0
     
+    public layerID
     layerID DWORD 0
     totalLayerCount DWORD 0
 
     screenWidth DWORD 0
     screenHeight DWORD 0
 
-
+    PUBLIC btnHeight
     btnHeight DWORD 90
 
     hDefaultCursor HCURSOR ?
@@ -39,6 +40,7 @@ EXTERN InitializeLayers: PROC
     layerCount DWORD ? 
     hBitmaps DWORD ?
 
+    PUBLIC hLayerButtons
     hLayerButtons HWND ?
     hControlButtons HWND ?
 
@@ -51,9 +53,11 @@ EXTERN InitializeLayers: PROC
 	EXTERN windowTitleError:BYTE
 
 .DATA?           
+    PUBLIC hWndLayer
     hWndLayer HWND ?
     mainHwnd HWND ?    
 
+    PUBLIC hLayerInstance
     hLayerInstance HINSTANCE ?                       
 
     hdc HDC ?
