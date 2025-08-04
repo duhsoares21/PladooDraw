@@ -16,7 +16,7 @@ EXTERN LayersCount: PROC
 EXTERN AddLayerButton: PROC
 EXTERN InitializeLayers: PROC
 
-RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
+RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
 
 .DATA                
     ClassName db "LayerWindowClass",0                 
@@ -35,6 +35,9 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD
 
     screenWidth DWORD 0
     screenHeight DWORD 0
+
+    PUBLIC btnWidth
+    btnWidth DWORD 90
 
     PUBLIC btnHeight
     btnHeight DWORD 90
@@ -129,7 +132,7 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD
         invoke GetClientRect, hWnd, addr rect
 
         mov eax, rect.right
-        sub eax, 120
+        sub eax, btnWidth
         mov screenWidth, eax
 
         mov eax, rect.bottom
@@ -142,7 +145,7 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD
         WS_CHILD or WS_VISIBLE or WS_BORDER,\
         screenWidth,\
         0,\ 
-        120,\
+        btnWidth,\
         screenHeight,\
         hWnd,\
         NULL,\
@@ -183,7 +186,7 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD
         
             invoke SetWindowLong, hWnd, GWL_STYLE, dwStyle
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, 0, 120, btnHeight, hWnd, layerID, hLayerInstance, NULL 
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, 0, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
             mov [hLayerButtons + 0 * SIZEOF DWORD], eax
 
             push eax
@@ -195,14 +198,14 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD
             sub eax, 60
             mov screenHeight, eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, 120, 30, hWnd, 1001, hLayerInstance, NULL 
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, btnWidth, 30, hWnd, 1001, hLayerInstance, NULL 
             mov [hControlButtons + 0 * SIZEOF DWORD], eax
         
             mov eax, screenHeight
             add eax, 30
             mov screenHeight, eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDelete, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, 120, 30, hWnd, 1002, hLayerInstance, NULL 
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDelete, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, btnWidth, 30, hWnd, 1002, hLayerInstance, NULL 
             mov [hControlButtons + 1 * SIZEOF DWORD], eax
 
             ret
@@ -218,7 +221,7 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD
                 mul layerID
                 mov ebx, eax
             
-                invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, ebx, 120, btnHeight, hWnd, layerID, hLayerInstance, NULL 
+                invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, ebx, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
                 mov edx, layerID
 
                 mov [hLayerButtons + edx * SIZEOF DWORD], eax
@@ -234,7 +237,7 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD
                 mov eax, 0
                 mov layerID, eax
 
-                invoke RecreateLayers, hWndLayer, hLayerInstance, btnHeight, addr hLayerButtons, addr layerID, addr szButtonClass, addr msgText
+                invoke RecreateLayers, hWndLayer, hLayerInstance, btnWidth, btnHeight, addr hLayerButtons, addr layerID, addr szButtonClass, addr msgText
 
                 invoke InvalidateRect, hWndLayer, NULL, 1
                 invoke UpdateWindow, hWndLayer

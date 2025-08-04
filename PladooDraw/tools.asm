@@ -64,6 +64,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     EXTERN windowTitleInformation:BYTE
 	EXTERN windowTitleError:BYTE
 
+    EXTERN btnWidth:DWORD
     EXTERN btnHeight:DWORD
     EXTERN layerID:DWORD
 
@@ -73,7 +74,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     EXTERN SetSelectedTool:proc
 
     SaveProjectDll PROTO STDCALL :PTR BYTE
-    LoadProjectDll PROTO STDCALL :PTR BYTE, :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
+    LoadProjectDll PROTO STDCALL :PTR BYTE, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
 
     CHOOSECOLOR STRUCT
         lStructSize      DWORD ?
@@ -161,7 +162,7 @@ LoadFileDialog PROC
         invoke GetOpenFileName, addr ofnOpen
         .if eax != 0
             ; Mostra o nome do arquivo selecionado
-            invoke LoadProjectDll, addr openFilePath, hWndLayer, hLayerInstance, btnHeight, addr hLayerButtons, addr layerID, addr szButtonClass, addr msgText
+            invoke LoadProjectDll, addr openFilePath, hWndLayer, hLayerInstance, btnWidth, btnHeight, addr hLayerButtons, addr layerID, addr szButtonClass, addr msgText
         .endif
 
         ret
