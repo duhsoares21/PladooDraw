@@ -22,14 +22,21 @@ EXTERN RectangleTool:proc
 EXTERN BrushTool:proc
 EXTERN EraserTool:proc
 EXTERN RenderLayers:proc
-EXTERN UpdateLayers:proc
 EXTERN Cleanup:proc
+
+EXTERN ZoomIn_Default:proc
+EXTERN ZoomOut_Default:proc
+
+SelectTool PROTO STDCALL :DWORD, :DWORD
+MoveTool PROTO STDCALL :DWORD, :DWORD, :DWORD, :DWORD
 
 RepositionLayerToolbar proto :DWORD,:DWORD,:DWORD,:DWORD
 Shortcuts proto :HWND,:WPARAM
 Paint proto :HWND,:DWORD,:DWORD
-TBrush proto :DWORD, :DWORD, :COLORREF, :DWORD, :DWORD
+TBrush proto :DWORD, :DWORD, :COLORREF, :DWORD
 TBucket proto :HWND,:HDC,:COLORREF
+TSelect proto
+TMove proto :DWORD, :DWORD
 
 .DATA 
 
@@ -47,14 +54,13 @@ TBucket proto :HWND,:HDC,:COLORREF
     EXTERN xInitial:DWORD
     EXTERN yInitial:DWORD
 
-    EXTERN zoomFactorW:DWORD
-    EXTERN zoomFactorH:DWORD
+    EXTERN pPixelSizeRatio:DWORD
 
     ;EXTERN msgText:BYTE
 	;EXTERN msgFmt:BYTE
 
-    msgFmt db "Data: %d", 0
     msgText db 256 dup(0)
+    msgFmt db "WM_SETUP_DIAL Thread ID: %d", 0  
 
     EXTERN windowTitleInformation:BYTE
 	EXTERN windowTitleError:BYTE
@@ -66,7 +72,8 @@ TBucket proto :HWND,:HDC,:COLORREF
     gX dd 0
     gY dd 0
 
-    pixelModeFlag DWORD 1
+    PUBLIC pixelModeFlag
+    pixelModeFlag DWORD 0
 
     IDC_CURSOR_ERASER db "./cursors/eraser.cur", 0
     IDC_CURSOR_ERASER_ALT db "./cursors/eraser-alt.cur", 0
@@ -76,6 +83,7 @@ TBucket proto :HWND,:HDC,:COLORREF
     IDC_CURSOR_ELLIPSE db "./cursors/ellipse.cur", 0
     IDC_CURSOR_LINE db "./cursors/line.cur", 0
     IDC_CURSOR_BUCKET db "./cursors/bucket.cur", 0
+    IDC_CURSOR_MOVE db "./cursors/move.cur", 0
 
     hInstance HINSTANCE ?                       
 
@@ -86,6 +94,7 @@ TBucket proto :HWND,:HDC,:COLORREF
     hEllipseCursor HCURSOR ?
     hLineCursor HCURSOR ?
     hBucketCursor HCURSOR ?
+    hMoveCursor HCURSOR ?
 
     hMainInstance HINSTANCE ?
     hDocInstance HINSTANCE ?     
@@ -165,6 +174,9 @@ WinMain proc
 
         invoke LoadCursorFromFile,addr IDC_CURSOR_BUCKET
         mov hBucketCursor, eax 
+
+        invoke LoadCursorFromFile,addr IDC_CURSOR_MOVE
+        mov hMoveCursor, eax 
         
         invoke RegisterClassEx, addr wc       
         
@@ -226,13 +238,7 @@ WinMain proc
         mov ecx, canvasWidth
         div ecx
 
-        mov zoomFactorW, eax
-
-        mov eax, documentHeight
-        mov ecx, canvasHeight
-        div ecx
-
-        mov zoomFactorH, eax
+        mov pPixelSizeRatio, eax
 
         invoke GetClientRect, hWnd, addr rect
 
@@ -396,6 +402,8 @@ WinMain proc
                 invoke SetCursor, hLineCursor
             .ELSEIF DWORD PTR [selectedTool] == 5
                 invoke SetCursor, hBucketCursor
+            .ELSEIF DWORD PTR [selectedTool] == 6
+                invoke SetCursor, hMoveCursor
             .ELSE
                 invoke SetCursor, hDefaultCursor
             .ENDIF
@@ -422,26 +430,20 @@ WinMain proc
             ret
 
         .ELSEIF uMsg==WM_LBUTTONDOWN               
-
+            
             ;Extraindo mouse X
             mov eax, lParam
-            and eax, 0FFFFh        ; X físico
-            mov ecx, zoomFactorW
-            xor edx, edx
-            div ecx                ; eax = X lógico
+            and eax, 0FFFFh        ; X fï¿½sico
             mov xInitial, eax
 
             ; Extraindo mouse Y
             mov eax, lParam
-            shr eax, 16            ; Y físico
-            mov ecx, zoomFactorH
-            xor edx, edx
-            div ecx                ; eax = Y lógico
+            shr eax, 16            ; Y fï¿½sico
             mov yInitial, eax
 
             .IF DWORD PTR [selectedTool] == 1
                 .IF pixelModeFlag == 1
-                    invoke TBrush, xInitial, yInitial, color, brushSize, pixelModeFlag
+                    invoke TBrush, xInitial, yInitial, color, pixelModeFlag
                     call RenderLayers
                 .ENDIF
             .ELSEIF DWORD PTR [selectedTool] == 5
@@ -449,6 +451,8 @@ WinMain proc
                 mov mainHdc, eax
 
                 invoke TBucket, hWnd, mainHdc, DWORD PTR [color]
+            .ELSEIF DWORD PTR [selectedTool] == 6
+                invoke TSelect
             .ENDIF
                 
             mov byte ptr [isMouseDown], 1
@@ -467,18 +471,12 @@ WinMain proc
                 
             ;Extraindo mouse X
             mov eax, lParam
-            and eax, 0FFFFh        ; X físico
-            mov ecx, zoomFactorW
-            xor edx, edx
-            div ecx                ; eax = X lógico
+            and eax, 0FFFFh        ; X fï¿½sico
             mov gX, eax
 
             ; Extraindo mouse Y
             mov eax, lParam
-            shr eax, 16            ; Y físico
-            mov ecx, zoomFactorH
-            xor edx, edx
-            div ecx                ; eax = Y lógico
+            shr eax, 16            ; Y fï¿½sico
             mov gY, eax
 
             invoke Paint, hWnd, gX, gY
@@ -493,6 +491,22 @@ WinMain proc
 
             LEndProc:
             ret
+        .ELSEIF uMsg==WM_MOUSEWHEEL
+            mov eax, wParam
+            shr eax, 16              
+            cmp eax, 120
+            je  ScrollUp
+            jne ScrollDown
+
+            jmp END_PROC
+
+        ScrollUp:
+            call ZoomIn_Default
+            jmp END_PROC
+
+        ScrollDown:
+            call ZoomOut_Default
+            jmp END_PROC
 
         .ELSE
             invoke DefWindowProc,hWnd,uMsg,wParam,lParam
@@ -505,9 +519,8 @@ WinMain proc
         ret
     WndDocProc endp
 
-TEraser Proc hWnd:HWND, x:DWORD, y:DWORD, localBrushSize:DWORD
+TEraser Proc x:DWORD, y:DWORD
         
-    push localBrushSize
     push y
     push x
     call EraserTool
@@ -515,10 +528,10 @@ TEraser Proc hWnd:HWND, x:DWORD, y:DWORD, localBrushSize:DWORD
     ret
 TEraser endp
 
-TBrush Proc x:DWORD, y:DWORD, localColor: COLORREF, localBrushSize:DWORD, pixelMode:DWORD
+TBrush Proc x:DWORD, y:DWORD, localColor: COLORREF, pixelMode:DWORD
     
+    push pPixelSizeRatio
     push pixelMode
-    push localBrushSize
     push localColor
     push y
     push x
@@ -527,7 +540,7 @@ TBrush Proc x:DWORD, y:DWORD, localColor: COLORREF, localBrushSize:DWORD, pixelM
     ret
 TBrush endp
 
-TRectangle Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF
+TRectangle Proc x:DWORD, y:DWORD, localColor: COLORREF
     
     push localColor 
     push y
@@ -540,7 +553,7 @@ TRectangle Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF
 
 TRectangle endp
 
-TEllipse Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF
+TEllipse Proc x:DWORD, y:DWORD, localColor: COLORREF
 
     push localColor
     push y
@@ -553,9 +566,8 @@ TEllipse Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF
         
 TEllipse endp
 
-TLine Proc hWnd:HWND, x:DWORD, y:DWORD, localColor: COLORREF, localBrushSize: DWORD
+TLine Proc x:DWORD, y:DWORD, localColor: COLORREF
     
-    push localBrushSize
     push localColor
     push y
     push x
@@ -577,6 +589,26 @@ TBucket proc hWnd:HWND, hdc:HDC, localColor:COLORREF
 
     ret
 TBucket endp
+
+TSelect Proc
+    invoke SelectTool, xInitial, yInitial
+
+    ret
+TSelect endp
+
+TMove Proc x:DWORD, y:DWORD
+
+    ;push y
+    ;push x
+    ;push yInitial
+    ;push xInitial
+    ;call MoveTool
+
+    invoke MoveTool, xInitial, yInitial, x, y
+
+    ret
+
+TMove endp
 
 Paint Proc hWnd:HWND, x:DWORD, y:DWORD 
     LOCAL hdc:HDC
@@ -611,35 +643,37 @@ Paint Proc hWnd:HWND, x:DWORD, y:DWORD
         cmp DWORD PTR [selectedTool], 5
         je LBucketTool
 
-        LEraseTool: 
-            mov eax, brushSize
-            mov ecx, zoomFactorW
-            div ecx
+        cmp DWORD PTR [selectedTool], 6
+        je LMoveTool
 
-            mov edx, eax
-            add edx, 18
-        
-            invoke TEraser, hWnd, x, y, edx
+        LEraseTool:         
+            invoke TEraser, x, y
             jmp END_PROC
 
         LBrushTool:
-            invoke TBrush, x, y, color, brushSize, pixelModeFlag
+            invoke TBrush, x, y, color, pixelModeFlag
             jmp END_PROC
 
         LRectangleTool: 
-            invoke TRectangle, hWnd, x, y, color
+            invoke TRectangle, x, y, color
             jmp END_PROC
 
         LEllipseTool:
-            invoke TEllipse, hWnd, x, y, color
+            invoke TEllipse, x, y, color
             jmp END_PROC
 
         LLineTool:  
-            invoke TLine, hWnd, x, y, color, brushSize
+            invoke TLine, x, y, color
             jmp END_PROC
 
         LBucketTool: 
             invoke TBucket, hWnd, hdc, color
+            jmp END_PROC
+
+        LMoveTool:
+            .IF byte ptr [isMouseDown] == 1
+                invoke TMove, x, y
+            .ENDIF
             jmp END_PROC
 
     DCFailed:

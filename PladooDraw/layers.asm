@@ -8,10 +8,15 @@ include \masm32\include\gdi32.inc
 include \masm32\include\kernel32.inc
 
 EXTERN AddLayer: PROC
+EXTERN RemoveLayer: PROC
+EXTERN RenderLayers: PROC
+EXTERN GetLayer: PROC
 EXTERN SetLayer: PROC
 EXTERN LayersCount: PROC
 EXTERN AddLayerButton: PROC
 EXTERN InitializeLayers: PROC
+
+RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
 
 .DATA                
     ClassName db "LayerWindowClass",0                 
@@ -203,6 +208,8 @@ EXTERN InitializeLayers: PROC
             ret
         .ELSEIF uMsg == WM_COMMAND
             .IF wParam == 1001
+                
+                push 0
                 call AddLayer
                 
                 inc layerID
@@ -220,6 +227,33 @@ EXTERN InitializeLayers: PROC
                 call AddLayerButton
 
                 invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
+            .ELSEIF wParam == 1002
+                call RemoveLayer
+                xor eax, eax
+
+                mov eax, 0
+                mov layerID, eax
+
+                invoke RecreateLayers, hWndLayer, hLayerInstance, btnHeight, addr hLayerButtons, addr layerID, addr szButtonClass, addr msgText
+
+                invoke InvalidateRect, hWndLayer, NULL, 1
+                invoke UpdateWindow, hWndLayer
+
+                invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW or RDW_ALLCHILDREN
+
+                call GetLayer
+                mov ecx, eax
+
+                dec ecx
+
+                .IF ecx < 0 
+                    mov ecx, 0
+                .ENDIF
+
+                push ecx
+                call SetLayer
+
+                call RenderLayers
             .ELSE 
                 push wParam
                 call SetLayer

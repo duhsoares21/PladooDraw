@@ -20,8 +20,10 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     szButtonLine db "(L)", 0
     szButtonBucket db "(P)", 0
     szButtonEraser db "(D)", 0
+    szButtonMove db "(M)", 0
     szButtonSave db "Save (S)", 0
     szButtonLoad db "Load (K)", 0
+    szPixelText db "Pixel Mode", 0
 
     ID_ICON_BRUSH db "./icons/brush.ico", 0
     ID_ICON_RECTANGLE db "./icons/rectangle.ico", 0
@@ -29,6 +31,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     ID_ICON_LINE db "./icons/line.ico", 0
     ID_ICON_PAINT_BUCKET db "./icons/paint_bucket.ico", 0
     ID_ICON_ERASER db "./icons/eraser.ico", 0
+    ID_ICON_MOVE db "./icons/move.ico", 0
     
     hIconBrush      HICON ?
     hIconRectangle      HICON ?
@@ -36,6 +39,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     hIconLine      HICON ?
     hIconPaintBucket      HICON ?
     hIconEraser      HICON ?
+    hIconMove      HICON ?
 
     szButtonClass db "BUTTON", 0
     szNotification db "Notification", 0
@@ -65,6 +69,8 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
     ;EXTERN SaveProjectDll:proc
     ;EXTERN LoadProjectDll:proc
+
+    EXTERN SetSelectedTool:proc
 
     SaveProjectDll PROTO STDCALL :PTR BYTE
     LoadProjectDll PROTO STDCALL :PTR BYTE, :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
@@ -97,6 +103,8 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     EXTERN hLayerButtons:HWND
     EXTERN hWndLayer:HWND
     EXTERN hLayerInstance:HINSTANCE
+
+    EXTERN pixelModeFlag:DWORD
 
     hdc HDC ?
 
@@ -147,6 +155,8 @@ LoadFileDialog PROC
         mov ofnOpen.lpstrFilter, offset pddFilter
         mov ofnOpen.Flags, OFN_FILEMUSTEXIST or OFN_PATHMUSTEXIST
         mov ofnOpen.lpstrDefExt, offset defaultExt
+
+        mov byte ptr [openFilePath], 0
 
         invoke GetOpenFileName, addr ofnOpen
         .if eax != 0
@@ -300,18 +310,31 @@ LoadFileDialog PROC
 
             invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconEraser
 
+            ;Move Tool
+            invoke LoadImage, NULL, OFFSET ID_ICON_MOVE, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            mov hIconMove, eax
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonMove, WS_CHILD or WS_VISIBLE or BS_ICON, 0, 90, 60, 30, hWnd, 6, hToolInstance, NULL
+            mov [hToolButtons + 6 * SIZEOF DWORD], eax
+
+            invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconMove
+
             ;Color Button
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, NULL, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 0, 90, 120, 30, hWnd, 6, hToolInstance, NULL 
-            mov [hColorButtons + 6 * SIZEOF DWORD], eax
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, NULL, WS_CHILD or WS_VISIBLE or BS_OWNERDRAW, 0, 120, 120, 30, hWnd, 101, hToolInstance, NULL 
+            mov [hColorButtons + 7 * SIZEOF DWORD], eax
 
             ;Save Button
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonSave, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 120, 120, 30, hWnd, 7, hToolInstance, NULL
-            mov [hToolButtons + 7 * SIZEOF DWORD], eax
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonSave, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 150, 120, 30, hWnd, 102, hToolInstance, NULL
+            mov [hToolButtons + 8 * SIZEOF DWORD], eax
 
             ;Load Button
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonLoad, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 150, 120, 30, hWnd, 8, hToolInstance, NULL
-            mov [hToolButtons + 8 * SIZEOF DWORD], eax
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonLoad, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 180, 120, 30, hWnd, 103, hToolInstance, NULL
+            mov [hToolButtons + 9 * SIZEOF DWORD], eax
+
+            ; Checkbox: Pixel Mode
+            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szPixelText, WS_CHILD or WS_VISIBLE or BS_AUTOCHECKBOX, 0, 210, 120, 30, hWnd, 104, hToolInstance, NULL
+            mov [hToolButtons + 10 * SIZEOF DWORD], eax
 
             mov hwndButton, eax
 
@@ -334,7 +357,7 @@ LoadFileDialog PROC
             invoke GetDlgCtrlID, eax
             mov ecx, eax
 
-            .if ecx == 6
+            .if ecx == 101
                 mov ecx, color
                 mov edx, ecx
             .endif 
@@ -343,13 +366,15 @@ LoadFileDialog PROC
             ret
         .ELSEIF uMsg == WM_COMMAND
                 
-                .IF wParam >= 0 && wParam <= 5 
+                .IF wParam >= 0 && wParam <= 100 
                     mov edx, wParam 
                     mov DWORD PTR [selectedTool], edx
+                    push selectedTool
+                    call SetSelectedTool
                     invoke SetFocus, mainWindowHwnd
                 .ENDIF
                 
-                .IF wParam == 6
+                .IF wParam == 101
                     invoke RtlZeroMemory, addr cc, sizeof CHOOSECOLOR
                     mov cc.lStructSize, sizeof CHOOSECOLOR
                     mov eax, hWnd
@@ -368,12 +393,22 @@ LoadFileDialog PROC
                     .ENDIF
                 .ENDIF
 
-                .IF wParam == 7
+                .IF wParam == 102
                     invoke SaveFileDialog
                 .ENDIF
 
-                .IF wParam == 8
+                .IF wParam == 103
                     invoke LoadFileDialog
+                .ENDIF
+
+                .IF wParam == 104
+                    ; Get checkbox state
+                    invoke SendDlgItemMessage, hWnd, 104, BM_GETCHECK, 0, 0
+                    .IF eax == BST_CHECKED
+                        mov pixelModeFlag, 1
+                    .ELSE
+                        mov pixelModeFlag, 0
+                    .ENDIF
                 .ENDIF
 
                 invoke SetFocus, hWnd

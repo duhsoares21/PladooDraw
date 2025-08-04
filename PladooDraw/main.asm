@@ -36,7 +36,7 @@ WinLayer proto :HWND
     isMouseDown db 0
     
     PUBLIC brushSize
-    brushSize dd 2
+    brushSize dd 1
 
     PUBLIC selectedTool
     selectedTool dd 1
@@ -44,12 +44,9 @@ WinLayer proto :HWND
     PUBLIC inSession
     inSession dd 0
 
-    PUBLIC zoomFactorW
-    zoomFactorW dd 1
-
-    PUBLIC zoomFactorH
-    zoomFactorH dd 1
-    
+    PUBLIC pPixelSizeRatio
+    pPixelSizeRatio dd 1
+        
     msg MSG <>
 
 .DATA?           
@@ -77,16 +74,22 @@ WinLayer proto :HWND
         invoke WinDocument, mainHwnd
         mov docHwnd, eax
         
-        push zoomFactorH
-        push zoomFactorW
+        push -1
+        push -1
+        push -1
+        push -1
         push docHwnd
+        push mainHwnd
         call Initialize
+
+        push 0
         call AddLayer
         call InitializeLayerRenderPreview
                 
         .WHILE TRUE                                               
             invoke GetMessage, ADDR msg,NULL,0,0
             .BREAK .IF (!eax)
+            invoke TranslateMessage, ADDR msg
             invoke DispatchMessage, ADDR msg
         .ENDW
 

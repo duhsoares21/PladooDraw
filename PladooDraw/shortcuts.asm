@@ -13,7 +13,8 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 	EXTERN ReorderLayerUp:proc
 	EXTERN ReorderLayerDown:proc
 	EXTERN RenderLayers:proc
-	EXTERN UpdateLayers:proc
+	EXTERN IncreaseBrushSize_Default:proc
+	EXTERN DecreaseBrushSize_Default:proc
 
 .CODE
 	Shortcuts Proc hWnd:HWND, wParam:WPARAM
@@ -64,17 +65,12 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
 		jmp END_PROC
 
-		ApplyDecrease :
-				dec DWORD PTR [brushSize]
-				jmp END_PROC
-
-		Increase :
-			inc DWORD PTR [brushSize]
+		Decrease :
+			call DecreaseBrushSize_Default	
 			jmp END_PROC
 
-		Decrease :
-			cmp DWORD PTR [brushSize], 1
-			jg ApplyDecrease
+		Increase :
+			call IncreaseBrushSize_Default
 			jmp END_PROC
 
 		Eraser :
@@ -103,14 +99,10 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
 		LUndo: 
 			call Undo
-			call UpdateLayers
-			call RenderLayers
 			jmp END_PROC
 
 		LRedo: 
 			call Redo
-			call UpdateLayers
-			call RenderLayers
 			jmp END_PROC
 
 		LOrderUp:
