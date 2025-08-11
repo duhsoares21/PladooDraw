@@ -8,6 +8,8 @@ include \masm32\include\gdi32.inc
 include \masm32\include\kernel32.inc
 include \masm32\include\comdlg32.inc
 
+include resource_icons.inc
+
 includelib PladooDraw_Direct2D_LayerSystem.lib
 
 .DATA                
@@ -24,14 +26,6 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     szButtonSave db "Save (S)", 0
     szButtonLoad db "Load (K)", 0
     szPixelText db "Pixel Mode", 0
-
-    ID_ICON_BRUSH db "./icons/brush.ico", 0
-    ID_ICON_RECTANGLE db "./icons/rectangle.ico", 0
-    ID_ICON_ELLIPSE db "./icons/ellipse.ico", 0
-    ID_ICON_LINE db "./icons/line.ico", 0
-    ID_ICON_PAINT_BUCKET db "./icons/paint_bucket.ico", 0
-    ID_ICON_ERASER db "./icons/eraser.ico", 0
-    ID_ICON_MOVE db "./icons/move.ico", 0
     
     hIconBrush      HICON ?
     hIconRectangle      HICON ?
@@ -67,9 +61,6 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     EXTERN btnWidth:DWORD
     EXTERN btnHeight:DWORD
     EXTERN layerID:DWORD
-
-    ;EXTERN SaveProjectDll:proc
-    ;EXTERN LoadProjectDll:proc
 
     EXTERN SetSelectedTool:proc
 
@@ -136,9 +127,6 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
         ; Chama o diálogo
         invoke GetSaveFileName, addr ofn
         .if eax != 0
-            ;push offset saveFilePath
-            ;call SaveProjectDll
-
             invoke SaveProjectDll, addr saveFilePath
         .endif
 
@@ -255,64 +243,64 @@ LoadFileDialog PROC
 
             ;Tools Buttons
 
+            ;Eraser Tool
+
+            invoke LoadImage, hToolInstance, ID_ICON_ERASER, IMAGE_ICON, 24, 24, LR_DEFAULTCOLOR or LR_DEFAULTSIZE
+            mov hIconEraser, eax
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonEraser, WS_CHILD or WS_VISIBLE or BS_ICON, 60, 60, 60, 30, hWnd, 0, hToolInstance, NULL
+            mov [hToolButtons + 0 * SIZEOF DWORD], eax
+
+            invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconEraser
+
             ;Brush Tool
-            invoke LoadImage, NULL, OFFSET ID_ICON_BRUSH, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            invoke LoadImage, hToolInstance, ID_ICON_BRUSH, IMAGE_ICON, 24, 24, LR_DEFAULTCOLOR or LR_DEFAULTSIZE
             mov hIconBrush, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonBrush, WS_CHILD or WS_VISIBLE or BS_ICON, 0, 0, 60, 30, hWnd, 1, hToolInstance, NULL 
-            mov [hToolButtons + 0 * SIZEOF DWORD], eax
+            mov [hToolButtons + 1 * SIZEOF DWORD], eax
 
             invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconBrush
 
             ;Rectangle Tool
-            invoke LoadImage, NULL, OFFSET ID_ICON_RECTANGLE, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            invoke LoadImage, hToolInstance, ID_ICON_RECTANGLE, IMAGE_ICON, 24, 24, LR_DEFAULTCOLOR or LR_DEFAULTSIZE
             mov hIconRectangle, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonRectangle, WS_CHILD or WS_VISIBLE or BS_ICON, 60, 0, 60, 30, hWnd, 2, hToolInstance, NULL
-            mov [hToolButtons + 1 * SIZEOF DWORD], eax
+            mov [hToolButtons + 2 * SIZEOF DWORD], eax
 
             invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconRectangle
 
             ;Ellipse Tool
-            invoke LoadImage, NULL, OFFSET ID_ICON_ELLIPSE, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            invoke LoadImage, hToolInstance, ID_ICON_ELLIPSE, IMAGE_ICON, 24, 24, LR_DEFAULTCOLOR or LR_DEFAULTSIZE
             mov hIconEllipse, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonEllipse, WS_CHILD or WS_VISIBLE or BS_ICON, 0, 30, 60, 30, hWnd, 3, hToolInstance, NULL
-            mov [hToolButtons + 2 * SIZEOF DWORD], eax
+            mov [hToolButtons + 3 * SIZEOF DWORD], eax
 
             invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconEllipse
 
             ;Line Tool
-            invoke LoadImage, NULL, OFFSET ID_ICON_LINE, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            invoke LoadImage, hToolInstance, ID_ICON_LINE, IMAGE_ICON, 24, 24, LR_DEFAULTCOLOR or LR_DEFAULTSIZE
             mov hIconLine, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonLine, WS_CHILD or WS_VISIBLE or BS_ICON, 60, 30, 60, 30, hWnd, 4, hToolInstance, NULL
-            mov [hToolButtons + 3 * SIZEOF DWORD], eax
+            mov [hToolButtons + 4 * SIZEOF DWORD], eax
 
             invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconLine
 
             ;Paint Bucket Tool
             
-            invoke LoadImage, NULL, OFFSET ID_ICON_PAINT_BUCKET, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            invoke LoadImage, hToolInstance, ID_ICON_PAINT_BUCKET, IMAGE_ICON, 24, 24, LR_DEFAULTCOLOR or LR_DEFAULTSIZE
             mov hIconPaintBucket, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonBucket, WS_CHILD or WS_VISIBLE or BS_ICON, 0, 60, 60, 30, hWnd, 5, hToolInstance, NULL
-            mov [hToolButtons + 4 * SIZEOF DWORD], eax
+            mov [hToolButtons + 5 * SIZEOF DWORD], eax
 
             invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconPaintBucket
 
-            ;Eraser Tool
-
-            invoke LoadImage, NULL, OFFSET ID_ICON_ERASER, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
-            mov hIconEraser, eax
-
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonEraser, WS_CHILD or WS_VISIBLE or BS_ICON, 60, 60, 60, 30, hWnd, 0, hToolInstance, NULL
-            mov [hToolButtons + 5 * SIZEOF DWORD], eax
-
-            invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconEraser
-
             ;Move Tool
-            invoke LoadImage, NULL, OFFSET ID_ICON_MOVE, IMAGE_ICON, 24, 24, LR_LOADFROMFILE or LR_DEFAULTSIZE
+            invoke LoadImage, hToolInstance, ID_ICON_MOVE, IMAGE_ICON, 24, 24, LR_DEFAULTCOLOR or LR_DEFAULTSIZE
             mov hIconMove, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonMove, WS_CHILD or WS_VISIBLE or BS_ICON, 0, 90, 60, 30, hWnd, 6, hToolInstance, NULL

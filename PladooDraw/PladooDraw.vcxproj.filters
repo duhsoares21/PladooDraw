@@ -7,4 +7,17 @@
     <MASM Include="tools.asm" />
     <MASM Include="layers.asm" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="resource_icons.inc" />
+    <None Include="resource_cursors.inc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="PladooDraw.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\..\..\Downloads\PladooDraw.ico" />
+  </ItemGroup>
 </Project>

@@ -9,6 +9,8 @@ include \masm32\include\kernel32.inc
 include \masm32\include\msimg32.inc
 include \masm32\include\gdiplus.inc
 
+include resource_cursors.inc
+
 includelib \masm32\lib\msimg32.lib
 includelib \masm32\lib\gdiplus.lib
 
@@ -75,16 +77,6 @@ TMove proto :DWORD, :DWORD
     PUBLIC pixelModeFlag
     pixelModeFlag DWORD 0
 
-    IDC_CURSOR_ERASER db "./cursors/eraser.cur", 0
-    IDC_CURSOR_ERASER_ALT db "./cursors/eraser-alt.cur", 0
-    IDC_CURSOR_BRUSH db "./cursors/brush.cur", 0
-    IDC_CURSOR_BRUSH_ALT db "./cursors/pencil.cur", 0
-    IDC_CURSOR_RECTANGLE db "./cursors/rectangle.cur", 0
-    IDC_CURSOR_ELLIPSE db "./cursors/ellipse.cur", 0
-    IDC_CURSOR_LINE db "./cursors/line.cur", 0
-    IDC_CURSOR_BUCKET db "./cursors/bucket.cur", 0
-    IDC_CURSOR_MOVE db "./cursors/move.cur", 0
-
     hInstance HINSTANCE ?                       
 
     hDefaultCursor HCURSOR ?
@@ -119,8 +111,6 @@ TMove proto :DWORD, :DWORD
     mainWindowWidth dd 0
     mainWindowHeight dd 0
 
-    ;AddLayer proto :DWORD, :COLORREF, :DWORD, :DWORD, :DWORD
-
 .DATA?
     blendFunc BLENDFUNCTION <>
     pD2DFactory DWORD ?
@@ -148,34 +138,34 @@ WinMain proc
         mov wc.lpszMenuName,NULL
         mov wc.lpszClassName,OFFSET ClassName
             
-        invoke LoadIcon,NULL,IDI_APPLICATION
+        invoke LoadIcon,hMainInstance,ID_ICON_APPLICATION
 
         mov wc.hIcon,eax
         mov wc.hIconSm,eax
             
-        invoke LoadCursor,NULL,IDC_ARROW
+        invoke LoadCursor,hMainInstance,IDC_ARROW
         mov wc.hCursor, eax
         mov hDefaultCursor, eax
             
-        invoke LoadCursorFromFile,addr IDC_CURSOR_ERASER_ALT
+        invoke LoadCursor, hMainInstance, IDC_CURSOR_ERASER
         mov hEraserCursor, eax
 
-        invoke LoadCursorFromFile,addr IDC_CURSOR_BRUSH
+        invoke LoadCursor, hMainInstance, IDC_CURSOR_BRUSH
         mov hBrushCursor, eax
 
-        invoke LoadCursorFromFile,addr IDC_CURSOR_RECTANGLE
+        invoke LoadCursor, hMainInstance, IDC_CURSOR_RECTANGLE
         mov hRectangleCursor, eax
 
-        invoke LoadCursorFromFile,addr IDC_CURSOR_ELLIPSE
+        invoke LoadCursor, hMainInstance, IDC_CURSOR_ELLIPSE
         mov hEllipseCursor, eax
 
-        invoke LoadCursorFromFile,addr IDC_CURSOR_LINE
+        invoke LoadCursor, hMainInstance, IDC_CURSOR_LINE
         mov hLineCursor, eax
 
-        invoke LoadCursorFromFile,addr IDC_CURSOR_BUCKET
+        invoke LoadCursor, hMainInstance, IDC_CURSOR_BUCKET
         mov hBucketCursor, eax 
 
-        invoke LoadCursorFromFile,addr IDC_CURSOR_MOVE
+        invoke LoadCursor, hMainInstance, IDC_CURSOR_MOVE
         mov hMoveCursor, eax 
         
         invoke RegisterClassEx, addr wc       
