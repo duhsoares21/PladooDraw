@@ -33,4 +33,8 @@ Opção 2: Scoop
 - scoop bucket add pladoodraw https://github.com/duhsoares21/Pladoo-Draw-Scoop-Bucket
 - scoop install pladoodraw
 
+Se você não tem o scoop instalado, basta executar os comandos abaixo no PowerShell:
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+
 ```
