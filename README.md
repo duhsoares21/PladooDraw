@@ -24,4 +24,13 @@ A aplicação utiliza uma DLL externa desenvolvida em C++ com Direct2D para part
 ## 🔧 Compilação
 Utilize Visual Studio com toolset para desenvolvimento nativo em Windows.
 
+## Instalação
+
+Opção 1: GitHub Releases
+- Baixe o instalador ou o zip através do GitHub Releases
+
+Opção 2: Scoop
+- scoop bucket add pladoodraw https://github.com/duhsoares21/Pladoo-Draw-Scoop-Bucket
+- scoop install pladoodraw
+
 ```
