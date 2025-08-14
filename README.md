@@ -1,13 +1,10 @@
----
-
 ### 📁 Projeto: [PladooDraw](https://github.com/duhsoares21/PladooDraw)
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/47530824-54aa-4f6a-b123-a246b5b19063" alt="Screenshot" width="100%">
 </p>
 
-```markdown
-# 🖌️ PladooDraw - Aplicativo de Desenho Estilo Paint Clássico
+#🖌️ PladooDraw - Aplicativo de Desenho Estilo Paint Clássico
 
 Aplicativo de desenho, inspirado no Paint clássico do Windows, construído em Assembly com uso do Windows SDK.
 
@@ -36,5 +33,3 @@ Opção 2: Scoop
 Se você não tem o scoop instalado, basta executar os comandos abaixo no PowerShell:
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-
-```
