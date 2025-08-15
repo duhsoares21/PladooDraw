@@ -25,7 +25,7 @@ Utilize Visual Studio com toolset para desenvolvimento nativo em Windows.
 
 ### Opção 1: Packably
 
-- Instale o Packably https://packably.vercel.app/
+- Instale o <a href="https://packably.vercel.app/" target="_blank">Packably</a>
 - Execute packl install pladoo-draw
 
 ### Opção 2: GitHub Releases
