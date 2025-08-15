@@ -23,10 +23,15 @@ Utilize Visual Studio com toolset para desenvolvimento nativo em Windows.
 
 ## Instalação
 
-Opção 1: GitHub Releases
+### Opção 1: Packably
+
+- Instale o Packably https://packably.vercel.app/
+- Execute packl install pladoo-draw
+
+### Opção 2: GitHub Releases
 - Baixe o instalador ou o zip através do GitHub Releases
 
-Opção 2: Scoop
+### Opção 3: Scoop
 - scoop bucket add pladoodraw https://github.com/duhsoares21/Pladoo-Draw-Scoop-Bucket
 - scoop install pladoodraw
 
