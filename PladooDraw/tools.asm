@@ -65,7 +65,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     EXTERN SetSelectedTool:proc
 
     SaveProjectDll PROTO STDCALL :PTR BYTE
-    LoadProjectDll PROTO STDCALL :PTR BYTE, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
+    LoadProjectDll PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
 
     CHOOSECOLOR STRUCT
         lStructSize      DWORD ?
@@ -108,6 +108,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
 .CODE          
 
+   
     SaveFileDialog PROC
         ; Zera a estrutura OPENFILENAME
         invoke RtlZeroMemory, addr ofn, sizeof ofn
@@ -124,7 +125,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
         mov byte ptr [saveFilePath], 0
 
-        ; Chama o diálogo
+        ; Chama o diï¿½logo
         invoke GetSaveFileName, addr ofn
         .if eax != 0
             invoke SaveProjectDll, addr saveFilePath

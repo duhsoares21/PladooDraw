@@ -22,6 +22,7 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR DWORD,
     ClassName db "LayerWindowClass",0                 
     AppName db "Layers Window",0
     
+    public szButtonClass
     szButtonClass db "BUTTON", 0
 
     szButtonAdd db "+", 0
