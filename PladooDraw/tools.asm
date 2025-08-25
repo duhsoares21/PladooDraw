@@ -45,8 +45,10 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     screenWidth DWORD 0
     screenHeight DWORD 0
 
-    pddFilter db "Paint Document (*.pdd)", 0, "*.pdd", 0, 0
-    defaultExt db "pdd", 0
+    pddFilter dw 'P','a','i','n','t',' ','D','o','c','u','m','e','n','t',' ','(','*','.','p','d','d',')',0
+          dw '*','.','p','d','d',0
+          dw 0
+defaultExt dw 'p','d','d',0
 
     EXTERN selectedTool:DWORD
     EXTERN brushSize:DWORD
@@ -103,7 +105,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     saveFilePath db MAX_PATH dup(?)
     ofn           OPENFILENAME <>
 
-    openFilePath db MAX_PATH dup(0)
+    openFilePath dw MAX_PATH dup(0)
     ofnOpen       OPENFILENAME <>
 
 .CODE          
@@ -135,27 +137,23 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     SaveFileDialog ENDP
 
 LoadFileDialog PROC
-        invoke RtlZeroMemory, addr ofnOpen, sizeof ofnOpen
-
-        mov ofnOpen.lStructSize, sizeof ofnOpen
-        push mainWindowHwnd
-        pop ofnOpen.hwndOwner
-        mov ofnOpen.lpstrFile, offset openFilePath
-        mov ofnOpen.nMaxFile, MAX_PATH
-        mov ofnOpen.lpstrFilter, offset pddFilter
-        mov ofnOpen.Flags, OFN_FILEMUSTEXIST or OFN_PATHMUSTEXIST
-        mov ofnOpen.lpstrDefExt, offset defaultExt
-
-        mov byte ptr [openFilePath], 0
-
-        invoke GetOpenFileName, addr ofnOpen
-        .if eax != 0
-            ; Mostra o nome do arquivo selecionado
-            invoke LoadProjectDll, addr openFilePath, hWndLayer, hLayerInstance, btnWidth, btnHeight, addr hLayerButtons, addr layerID, addr szButtonClass, addr msgText
-        .endif
-
-        ret
-    LoadFileDialog ENDP
+    invoke RtlZeroMemory, addr ofnOpen, sizeof ofnOpen
+    mov ofnOpen.lStructSize, sizeof ofnOpen
+    push mainWindowHwnd
+    pop ofnOpen.hwndOwner
+    mov ofnOpen.lpstrFile, offset openFilePath
+    mov ofnOpen.nMaxFile, MAX_PATH
+    mov ofnOpen.lpstrFilter, offset pddFilter
+    mov ofnOpen.Flags, OFN_FILEMUSTEXIST or OFN_PATHMUSTEXIST
+    mov ofnOpen.lpstrDefExt, offset defaultExt
+    mov word ptr [openFilePath], 0
+    invoke GetOpenFileNameW, addr ofnOpen
+    .if eax != 0
+        ; Mostra o nome do arquivo selecionado
+        invoke LoadProjectDll, addr openFilePath, hWndLayer, hLayerInstance, btnWidth, btnHeight, addr hLayerButtons, addr layerID, addr szButtonClass, addr msgText
+    .endif
+    ret
+LoadFileDialog ENDP
 
     
     WinTool proc hWnd:HWND    

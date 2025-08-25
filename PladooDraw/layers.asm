@@ -245,6 +245,8 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR DWORD,
 
                 invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW or RDW_ALLCHILDREN
 
+                dec layerID
+
                 call GetLayer
                 mov ecx, eax
 
