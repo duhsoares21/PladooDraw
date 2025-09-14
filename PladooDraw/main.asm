@@ -70,7 +70,10 @@ LoadProjectDll PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWOR
     PUBLIC yInitial
     yInitial DWORD ?
 
+    PUBLIC mainHwnd
     mainHwnd HWND ?
+
+    PUBLIC docHwnd
     docHwnd HWND ?
 
     lpCmdLine   LPWSTR ?       
@@ -87,20 +90,10 @@ LoadProjectDll PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWOR
         
         invoke WinMain    
         mov mainHwnd, eax
-
+        
         invoke WinTool, mainHwnd
-        invoke WinLayer, mainHwnd
-        
         invoke WinDocument, mainHwnd
-        mov docHwnd, eax
-        
-        push -1
-        push -1
-        push -1
-        push -1
-        push docHwnd
-        push mainHwnd
-        call Initialize
+        invoke WinLayer, mainHwnd
 
         push 0
         call AddLayer

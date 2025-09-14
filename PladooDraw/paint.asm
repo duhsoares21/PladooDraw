@@ -24,11 +24,14 @@ EXTERN RectangleTool:proc
 EXTERN BrushTool:proc
 EXTERN EraserTool:proc
 EXTERN RenderLayers:proc
+EXTERN WriteTool:proc
 EXTERN Cleanup:proc
+EXTERN Initialize:proc
 
 EXTERN ZoomIn_Default:proc
 EXTERN ZoomOut_Default:proc
 
+Resize PROTO STDCALL :DWORD, :DWORD
 SelectTool PROTO STDCALL :DWORD, :DWORD
 MoveTool PROTO STDCALL :DWORD, :DWORD, :DWORD, :DWORD
 
@@ -47,6 +50,9 @@ TMove proto :DWORD, :DWORD
     AppName db "Pladoo Draw",0 
     AppNameDoc db "Pladoo Draw Document",0 
 
+    szErrorCreatingDoc db "Erro ao criar a janela do documento.",0
+    szErrorTitle       db "Erro",0  
+
     EXTERN isMouseDown:BYTE
     EXTERN brushSize:DWORD
     EXTERN color:COLORREF
@@ -55,6 +61,9 @@ TMove proto :DWORD, :DWORD
 
     EXTERN xInitial:DWORD
     EXTERN yInitial:DWORD
+
+    EXTERN mainHwnd:HWND
+    EXTERN docHwnd:HWND
 
     EXTERN pPixelSizeRatio:DWORD
 
@@ -95,25 +104,12 @@ TMove proto :DWORD, :DWORD
     screenHeight DWORD 0
 
     mainHdc HDC ?
-        
-    hBrush dd 0 
-    hPen dd 0 
-
-    prevRect RECT <0, 0, 0, 0>
-
-    BLENDFUNCTION STRUCT
-        BlendOp                 DB ?
-        BlendFlags              DB ?
-        SourceConstantAlpha     DB ?
-        AlphaFormat             DB ?
-    BLENDFUNCTION ENDS
 
     mainWindowWidth dd 0
     mainWindowHeight dd 0
 
 .DATA?
-    blendFunc BLENDFUNCTION <>
-    pD2DFactory DWORD ?
+    lpMsgBuf dd ?    ; ponteiro para mensagem de erro formatada
 .CODE
 
 WinMain proc
@@ -221,8 +217,20 @@ WinMain proc
         mov documentWidth, 512
         mov documentHeight, 512
 
-        mov canvasWidth, 32
-        mov canvasHeight, 32
+        mov eax, documentWidth
+        mov ecx, 16
+        div ecx
+
+        mov canvasWidth, eax
+
+        xor eax, eax
+        xor ecx, ecx
+
+        mov eax, documentHeight
+        mov ecx, 16
+        div ecx
+                
+        mov canvasHeight, eax
 
         mov eax, documentWidth
         mov ecx, canvasWidth
@@ -242,24 +250,26 @@ WinMain proc
 
         mov color, 00000000h
             
-        mov wc.cbSize,SIZEOF WNDCLASSEX                           
+        mov wc.cbSize, SIZEOF WNDCLASSEX
         mov wc.style, CS_HREDRAW or CS_VREDRAW
         mov wc.lpfnWndProc, OFFSET WndDocProc
+        mov wc.cbClsExtra, 0
+        mov wc.cbWndExtra, 0
 
-        invoke GetModuleHandle, NULL            
+        invoke GetModuleHandle, NULL
         mov wc.hInstance, eax
         mov hDocInstance, eax
 
-        xor eax, eax
+        invoke LoadCursor, NULL, IDC_ARROW
+        mov wc.hCursor, eax
 
-        mov wc.hbrBackground,0
-        mov wc.lpszMenuName,NULL
-        mov wc.lpszClassName,OFFSET DocClassName
+        mov wc.hbrBackground, 0           ; ou (COLOR_WINDOW+1)
+        mov wc.lpszMenuName, NULL
+        mov wc.lpszClassName, OFFSET DocClassName
 
-        invoke LoadIcon,NULL,IDI_APPLICATION
-
-        mov wc.hIcon,eax
-        mov wc.hIconSm,eax      
+        invoke LoadIcon, NULL, IDI_APPLICATION
+        mov wc.hIcon, eax
+        mov wc.hIconSm, eax
         
         mov edx, 0
         mov eax, screenWidth
@@ -331,12 +341,12 @@ WinMain proc
 
         mov hwndDocument, eax
 
-        invoke ShowWindow,hwndDocument,SW_SHOW
+        invoke ShowWindow, hwndDocument, SW_SHOW
         invoke UpdateWindow, hwndDocument
-        
+    
         mov eax, hwndDocument
-        
-        ret 
+
+        ret
     WinDocument endp
 
     WndMainProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
@@ -394,6 +404,8 @@ WinMain proc
                 invoke SetCursor, hBucketCursor
             .ELSEIF DWORD PTR [selectedTool] == 6
                 invoke SetCursor, hMoveCursor
+            .ELSEIF DWORD PTR [selectedTool] == 7
+                invoke SetCursor, hMoveCursor
             .ELSE
                 invoke SetCursor, hDefaultCursor
             .ENDIF
@@ -410,12 +422,40 @@ WinMain proc
     WndDocProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM       
         LOCAL rect:RECT
         LOCAL mousePosition:POINT
+        LOCAL lowLPARAM:DWORD
+        LOCAL highLPARAM:DWORD
                         
         .IF uMsg==WM_KEYDOWN
                 
             push wParam
             push hWnd
             call Shortcuts
+
+            ret
+
+        .ELSEIF uMsg==WM_CREATE
+
+            push -1
+            push -1
+            push -1
+            push hWnd
+            push mainHwnd
+            call Initialize
+
+        .ELSEIF uMsg==WM_SIZE
+        
+            mov eax, lParam
+            and eax, 0FFFFh
+            mov lowLPARAM, eax
+
+            mov eax, lParam
+            shr eax, 16            
+            mov highLPARAM, eax
+
+            ;invoke Resize, lowLPARAM, highLPARAM
+
+            invoke InvalidateRect, hWnd, NULL, 1
+            invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW or RDW_ALLCHILDREN
 
             ret
 
@@ -588,17 +628,24 @@ TSelect endp
 
 TMove Proc x:DWORD, y:DWORD
 
-    ;push y
-    ;push x
-    ;push yInitial
-    ;push xInitial
-    ;call MoveTool
-
     invoke MoveTool, xInitial, yInitial, x, y
 
     ret
 
 TMove endp
+
+TWrite Proc x:DWORD, y:DWORD
+    
+    push y
+    push x
+    push yInitial
+    push xInitial
+    call WriteTool
+
+    ret
+
+TWrite endp
+
 
 Paint Proc hWnd:HWND, x:DWORD, y:DWORD 
     LOCAL hdc:HDC
@@ -636,6 +683,9 @@ Paint Proc hWnd:HWND, x:DWORD, y:DWORD
         cmp DWORD PTR [selectedTool], 6
         je LMoveTool
 
+        cmp DWORD PTR [selectedTool], 7
+        je LWriteTool
+
         LEraseTool:         
             invoke TEraser, x, y
             jmp END_PROC
@@ -666,12 +716,20 @@ Paint Proc hWnd:HWND, x:DWORD, y:DWORD
             .ENDIF
             jmp END_PROC
 
+        LWriteTool: 
+            invoke TWrite, x, y
+            jmp END_PROC
+
     DCFailed:
         invoke wsprintfA, offset msgText, offset msgFmt, x, y
         invoke MessageBoxA, hWnd, offset msgText, offset windowTitleError, MB_OK
         jmp END_PROC
 
-    END_PROC: 
+    END_PROC:
+        cmp hdc, 0
+        jz NoRelease
+        invoke ReleaseDC, hWnd, hdc
+    NoRelease:
         ret
 Paint endp
 

@@ -10,6 +10,13 @@
   <ItemGroup>
     <None Include="resource_icons.inc" />
     <None Include="resource_cursors.inc" />
+    <None Include="..\Release\cursors\brush.cur" />
+    <None Include="..\Release\cursors\bucket.cur" />
+    <None Include="..\Release\cursors\ellipse.cur" />
+    <None Include="..\Release\cursors\eraser.cur" />
+    <None Include="..\Release\cursors\line.cur" />
+    <None Include="..\Release\cursors\move.cur" />
+    <None Include="..\Release\cursors\rectangle.cur" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
@@ -19,5 +26,13 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\..\Downloads\PladooDraw.ico" />
+    <Image Include="icons\text.ico" />
+    <Image Include="icons\brush.ico" />
+    <Image Include="icons\ellipse.ico" />
+    <Image Include="icons\eraser.ico" />
+    <Image Include="icons\line.ico" />
+    <Image Include="icons\move.ico" />
+    <Image Include="icons\paint_bucket.ico" />
+    <Image Include="icons\rectangle.ico" />
   </ItemGroup>
 </Project>

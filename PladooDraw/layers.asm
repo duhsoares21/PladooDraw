@@ -189,10 +189,7 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR DWORD,
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, 0, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
             mov [hLayerButtons + 0 * SIZEOF DWORD], eax
-
-            push eax
-            call AddLayerButton
-
+            
             invoke GetClientRect, hWnd, addr rect   
 
             mov eax, rect.bottom
@@ -209,6 +206,16 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR DWORD,
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDelete, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, btnWidth, 30, hWnd, 1002, hLayerInstance, NULL 
             mov [hControlButtons + 1 * SIZEOF DWORD], eax
 
+            push 0
+            call AddLayer
+
+            mov eax, [hLayerButtons + 0 * SIZEOF DWORD]
+
+            push eax
+            call AddLayerButton
+
+            mov eax, eax
+
             ret
         .ELSEIF uMsg == WM_COMMAND
             .IF wParam == 1001
@@ -222,13 +229,17 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR DWORD,
                 mul layerID
                 mov ebx, eax
             
-                invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, ebx, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
                 mov edx, layerID
 
                 mov [hLayerButtons + edx * SIZEOF DWORD], eax
 
+                invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, ebx, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
+
                 push eax
                 call AddLayerButton
+
+                push layerID
+                call SetLayer
 
                 invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
             .ELSEIF wParam == 1002
