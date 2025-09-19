@@ -5,18 +5,22 @@ option casemap:none
 include \masm32\include\windows.inc
 include \masm32\include\user32.inc
 include \masm32\include\gdi32.inc
+include \masm32\include\shell32.inc
 include \masm32\include\kernel32.inc
 
 EXTERN AddLayer: PROC
 EXTERN RemoveLayer: PROC
 EXTERN RenderLayers: PROC
+EXTERN DrawLayerPreview: PROC
 EXTERN GetLayer: PROC
 EXTERN SetLayer: PROC
+EXTERN GetActiveLayersCount: PROC
 EXTERN LayersCount: PROC
 EXTERN AddLayerButton: PROC
 EXTERN InitializeLayers: PROC
+EXTERN RemoveLayerButton: PROC
 
-RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
+LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWORD, :PTR DWORD, :DWORD, :PTR WORD, :PTR BYTE
 
 .DATA                
     ClassName db "LayerWindowClass",0                 
@@ -70,6 +74,11 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR DWORD,
     hLayerInstance HINSTANCE ?                       
 
     hdc HDC ?
+
+    lpCmdLine   LPWSTR ?       
+    argv        LPWSTR* ?      
+    argc        SDWORD ?       
+    pFilePath   LPWSTR ? 
 
 .CODE          
 
@@ -207,6 +216,7 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR DWORD,
             mov [hControlButtons + 1 * SIZEOF DWORD], eax
 
             push 0
+            push 0
             call AddLayer
 
             mov eax, [hLayerButtons + 0 * SIZEOF DWORD]
@@ -214,63 +224,101 @@ RecreateLayers PROTO STDCALL :HWND, :HINSTANCE, :SDWORD, :PTR DWORD, :PTR DWORD,
             push eax
             call AddLayerButton
 
-            mov eax, eax
+            inc layerID
+
+            xor eax, eax
+
+            invoke GetCommandLineW
+            mov lpCmdLine, eax
+
+            invoke CommandLineToArgvW, lpCmdLine, addr argc
+            mov argv, eax
+
+            mov eax, argc
+            cmp eax, 1
+            jle NoFileArg
+
+            mov eax, argv
+            mov eax, [eax+4]
+            mov pFilePath, eax
+
+            invoke LoadProjectDllW, pFilePath, hWnd, hLayerInstance, btnWidth, btnHeight, addr hLayerButtons, layerID, addr szButtonClass, addr msgText
+
+            NoFileArg:
+                ret
 
             ret
         .ELSEIF uMsg == WM_COMMAND
             .IF wParam == 1001
-                
-                push 0
-                call AddLayer
-                
-                inc layerID
 
+                call GetActiveLayersCount
+                mov ecx, eax
+                
+                xor eax, eax
+                
                 mov eax, btnHeight  
-                mul layerID
+                mul ecx
                 mov ebx, eax
             
                 mov edx, layerID
-
-                mov [hLayerButtons + edx * SIZEOF DWORD], eax
+                
+                push edx
+                push 0
+                call AddLayer
 
                 invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, ebx, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
+                mov [hLayerButtons + edx * SIZEOF DWORD], eax
 
                 push eax
                 call AddLayerButton
 
-                push layerID
+                invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
+
+                push edx
                 call SetLayer
 
-                invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
+                inc layerID
+                
             .ELSEIF wParam == 1002
                 call RemoveLayer
-                xor eax, eax
+                ;xor eax, eax
 
-                mov eax, 0
-                mov layerID, eax
+                ;mov eax, 0
+                ;mov layerID, eax
 
-                invoke RecreateLayers, hWndLayer, hLayerInstance, btnWidth, btnHeight, addr hLayerButtons, addr layerID, addr szButtonClass, addr msgText
+                call RemoveLayerButton
 
                 invoke InvalidateRect, hWndLayer, NULL, 1
                 invoke UpdateWindow, hWndLayer
 
                 invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW or RDW_ALLCHILDREN
 
-                dec layerID
+                ;dec layerID
 
                 call GetLayer
                 mov ecx, eax
 
                 dec ecx
 
-                .IF ecx < 0 
-                    mov ecx, 0
-                .ENDIF
+                cmp ecx, 0
+                jge LSetLayer
+                
+                mov ecx, 0
+                
+                LSetLayer:
+                    push ecx
+                    call SetLayer
 
-                push ecx
-                call SetLayer
+                    cmp ecx, 0
+                    jge LRenderLayers
 
-                call RenderLayers
+                    invoke SendMessageA, hWnd, WM_COMMAND, 1002, 0
+                
+                LRenderLayers: 
+                    call RenderLayers
+
+                    xor eax, eax
+                    ret
             .ELSE 
                 push wParam
                 call SetLayer

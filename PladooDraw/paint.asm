@@ -5,6 +5,7 @@
 include \masm32\include\windows.inc
 include \masm32\include\user32.inc
 include \masm32\include\gdi32.inc
+include \masm32\include\shell32.inc
 include \masm32\include\kernel32.inc
 include \masm32\include\msimg32.inc
 include \masm32\include\gdiplus.inc
@@ -27,6 +28,8 @@ EXTERN RenderLayers:proc
 EXTERN WriteTool:proc
 EXTERN Cleanup:proc
 EXTERN Initialize:proc
+EXTERN GetLayer: PROC
+EXTERN DrawLayerPreview:PROC
 
 EXTERN ZoomIn_Default:proc
 EXTERN ZoomOut_Default:proc
@@ -65,10 +68,7 @@ TMove proto :DWORD, :DWORD
     EXTERN mainHwnd:HWND
     EXTERN docHwnd:HWND
 
-    EXTERN pPixelSizeRatio:DWORD
-
-    ;EXTERN msgText:BYTE
-	;EXTERN msgFmt:BYTE
+    EXTERN pPixelSizeRatio:DWORD     
 
     msgText db 256 dup(0)
     msgFmt db "WM_SETUP_DIAL Thread ID: %d", 0  
@@ -475,6 +475,13 @@ WinMain proc
                 .IF pixelModeFlag == 1
                     invoke TBrush, xInitial, yInitial, color, pixelModeFlag
                     call RenderLayers
+
+                    ;call GetLayer
+                  
+                    ;push eax
+                    ;call DrawLayerPreview
+
+                    xor eax, eax
                 .ENDIF
             .ELSEIF DWORD PTR [selectedTool] == 5
                 invoke GetDC, hWnd
@@ -518,6 +525,13 @@ WinMain proc
             je LEndProc
             
             call RenderLayers
+
+            ;call GetLayer
+
+            ;push eax
+            ;call DrawLayerPreview
+
+            xor eax, eax
 
             LEndProc:
             ret

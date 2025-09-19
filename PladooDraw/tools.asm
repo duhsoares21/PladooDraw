@@ -76,7 +76,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     EXTERN SetSelectedTool:proc
     
     SaveProjectDll PROTO STDCALL :PTR BYTE
-    LoadProjectDll PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWORD, :PTR DWORD, :PTR SDWORD, :PTR WORD, :PTR BYTE
+    LoadProjectDll PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWORD, :PTR DWORD, :DWORD, :PTR WORD, :PTR BYTE
     
     SetFont PROTO STDCALL
 
