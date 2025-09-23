@@ -168,6 +168,7 @@
   <ItemGroup>
     <None Include="..\Release\cursors\brush.cur" />
     <None Include="..\Release\cursors\bucket.cur" />
+    <None Include="..\release\cursors\cursor8.cur" />
     <None Include="..\Release\cursors\ellipse.cur" />
     <None Include="..\Release\cursors\eraser.cur" />
     <None Include="..\Release\cursors\line.cur" />

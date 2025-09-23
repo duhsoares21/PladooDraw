@@ -43,6 +43,7 @@ Shortcuts proto :HWND,:WPARAM
 Paint proto :HWND,:DWORD,:DWORD
 TBrush proto :DWORD, :DWORD, :COLORREF, :DWORD
 TBucket proto :HWND,:HDC,:COLORREF
+TWrite proto :DWORD, :DWORD
 TSelect proto
 TMove proto :DWORD, :DWORD
 
@@ -96,6 +97,7 @@ TMove proto :DWORD, :DWORD
     hLineCursor HCURSOR ?
     hBucketCursor HCURSOR ?
     hMoveCursor HCURSOR ?
+    hTextCursor HCURSOR ?
 
     hMainInstance HINSTANCE ?
     hDocInstance HINSTANCE ?     
@@ -139,30 +141,9 @@ WinMain proc
         mov wc.hIcon,eax
         mov wc.hIconSm,eax
             
-        invoke LoadCursor,hMainInstance,IDC_ARROW
+        invoke LoadCursor,NULL,IDC_ARROW
         mov wc.hCursor, eax
         mov hDefaultCursor, eax
-            
-        invoke LoadCursor, hMainInstance, IDC_CURSOR_ERASER
-        mov hEraserCursor, eax
-
-        invoke LoadCursor, hMainInstance, IDC_CURSOR_BRUSH
-        mov hBrushCursor, eax
-
-        invoke LoadCursor, hMainInstance, IDC_CURSOR_RECTANGLE
-        mov hRectangleCursor, eax
-
-        invoke LoadCursor, hMainInstance, IDC_CURSOR_ELLIPSE
-        mov hEllipseCursor, eax
-
-        invoke LoadCursor, hMainInstance, IDC_CURSOR_LINE
-        mov hLineCursor, eax
-
-        invoke LoadCursor, hMainInstance, IDC_CURSOR_BUCKET
-        mov hBucketCursor, eax 
-
-        invoke LoadCursor, hMainInstance, IDC_CURSOR_MOVE
-        mov hMoveCursor, eax 
         
         invoke RegisterClassEx, addr wc       
         
@@ -263,6 +244,34 @@ WinMain proc
         invoke LoadCursor, NULL, IDC_ARROW
         mov wc.hCursor, eax
 
+        invoke LoadCursor,hDocInstance,IDC_ARROW
+        mov wc.hCursor, eax
+        mov hDefaultCursor, eax
+            
+        invoke LoadCursor, hDocInstance, IDC_CURSOR_ERASER
+        mov hEraserCursor, eax
+
+        invoke LoadCursor, hDocInstance, IDC_CURSOR_BRUSH
+        mov hBrushCursor, eax
+
+        invoke LoadCursor, hDocInstance, IDC_CURSOR_RECTANGLE
+        mov hRectangleCursor, eax
+
+        invoke LoadCursor, hDocInstance, IDC_CURSOR_ELLIPSE
+        mov hEllipseCursor, eax
+
+        invoke LoadCursor, hDocInstance, IDC_CURSOR_LINE
+        mov hLineCursor, eax
+
+        invoke LoadCursor, hDocInstance, IDC_CURSOR_BUCKET
+        mov hBucketCursor, eax 
+
+        invoke LoadCursor, hDocInstance, IDC_CURSOR_MOVE
+        mov hMoveCursor, eax 
+
+        invoke LoadCursor, hDocInstance, IDC_CURSOR_TEXT
+        mov hTextCursor, eax
+
         mov wc.hbrBackground, 0           ; ou (COLOR_WINDOW+1)
         mov wc.lpszMenuName, NULL
         mov wc.lpszClassName, OFFSET DocClassName
@@ -329,7 +338,7 @@ WinMain proc
         NULL,\ 
         ADDR DocClassName,\ 
         ADDR AppNameDoc,\ 
-        WS_CHILD or WS_VISIBLE,\ 
+        WS_CHILD or WS_VISIBLE or WS_CLIPCHILDREN,\ 
         centerX,\ 
         centerY,\ 
         documentWidth,\ 
@@ -386,29 +395,7 @@ WinMain proc
             and dwStyle, NOT WS_THICKFRAME
         
             invoke SetWindowLong, hWnd, GWL_STYLE, dwStyle
-
-            ret
-        .ELSEIF uMsg == WM_SETCURSOR
-                
-            .IF DWORD PTR [selectedTool] == 0
-                invoke SetCursor, hEraserCursor
-            .ELSEIF DWORD PTR [selectedTool] == 1
-                invoke SetCursor, hBrushCursor
-            .ELSEIF DWORD PTR [selectedTool] == 2
-                invoke SetCursor, hRectangleCursor
-            .ELSEIF DWORD PTR [selectedTool] == 3
-                invoke SetCursor, hEllipseCursor
-            .ELSEIF DWORD PTR [selectedTool] == 4
-                invoke SetCursor, hLineCursor
-            .ELSEIF DWORD PTR [selectedTool] == 5
-                invoke SetCursor, hBucketCursor
-            .ELSEIF DWORD PTR [selectedTool] == 6
-                invoke SetCursor, hMoveCursor
-            .ELSEIF DWORD PTR [selectedTool] == 7
-                invoke SetCursor, hMoveCursor
-            .ELSE
-                invoke SetCursor, hDefaultCursor
-            .ENDIF
+            invoke SetCursor, hDefaultCursor
 
             ret
         .ELSE
@@ -432,7 +419,29 @@ WinMain proc
             call Shortcuts
 
             ret
+        .ELSEIF uMsg == WM_SETCURSOR
+                
+            .IF DWORD PTR [selectedTool] == 0
+                invoke SetCursor, hEraserCursor
+            .ELSEIF DWORD PTR [selectedTool] == 1
+                invoke SetCursor, hBrushCursor
+            .ELSEIF DWORD PTR [selectedTool] == 2
+                invoke SetCursor, hRectangleCursor
+            .ELSEIF DWORD PTR [selectedTool] == 3
+                invoke SetCursor, hEllipseCursor
+            .ELSEIF DWORD PTR [selectedTool] == 4
+                invoke SetCursor, hLineCursor
+            .ELSEIF DWORD PTR [selectedTool] == 5
+                invoke SetCursor, hBucketCursor
+            .ELSEIF DWORD PTR [selectedTool] == 6
+                invoke SetCursor, hMoveCursor
+            .ELSEIF DWORD PTR [selectedTool] == 7
+                invoke SetCursor, hTextCursor
+            .ELSE
+                invoke SetCursor, hDefaultCursor
+            .ENDIF
 
+            ret
         .ELSEIF uMsg==WM_CREATE
 
             push -1
@@ -490,6 +499,10 @@ WinMain proc
                 invoke TBucket, hWnd, mainHdc, DWORD PTR [color]
             .ELSEIF DWORD PTR [selectedTool] == 6
                 invoke TSelect
+            .ELSEIF DWORD PTR [selectedTool] == 7
+
+                invoke TWrite, xInitial, yInitial
+                
             .ENDIF
                 
             mov byte ptr [isMouseDown], 1
@@ -523,13 +536,11 @@ WinMain proc
 
             cmp DWORD PTR [selectedTool], 5 
             je LEndProc
+
+            cmp DWORD PTR [selectedTool], 7 
+            je LEndProc
             
             call RenderLayers
-
-            ;call GetLayer
-
-            ;push eax
-            ;call DrawLayerPreview
 
             xor eax, eax
 
@@ -652,8 +663,6 @@ TWrite Proc x:DWORD, y:DWORD
     
     push y
     push x
-    push yInitial
-    push xInitial
     call WriteTool
 
     ret
@@ -721,7 +730,6 @@ Paint Proc hWnd:HWND, x:DWORD, y:DWORD
             jmp END_PROC
 
         LBucketTool: 
-            invoke TBucket, hWnd, hdc, color
             jmp END_PROC
 
         LMoveTool:
@@ -731,7 +739,6 @@ Paint Proc hWnd:HWND, x:DWORD, y:DWORD
             jmp END_PROC
 
         LWriteTool: 
-            invoke TWrite, x, y
             jmp END_PROC
 
     DCFailed:

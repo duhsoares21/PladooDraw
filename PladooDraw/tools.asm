@@ -73,6 +73,9 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     EXTERN btnHeight:DWORD
     EXTERN layerID:DWORD
 
+    EXTERN docHwnd :HWND
+    toolCount EQU 8
+
     EXTERN SetSelectedTool:proc
     
     SaveProjectDll PROTO STDCALL :PTR BYTE
@@ -267,7 +270,7 @@ LoadFileDialog ENDP
             invoke LoadImage, hToolInstance, ID_ICON_BRUSH, IMAGE_ICON, 24, 24, LR_DEFAULTCOLOR or LR_DEFAULTSIZE
             mov hIconBrush, eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonBrush, WS_CHILD or WS_VISIBLE or BS_ICON, 0, 0, 60, 30, hWnd, 1, hToolInstance, NULL 
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonBrush, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON or BS_ICON, 0, 0, 60, 30, hWnd, 1, hToolInstance, NULL 
             mov [hToolButtons + 1 * SIZEOF DWORD], eax
 
             invoke SendMessage, eax, BM_SETIMAGE, IMAGE_ICON, hIconBrush
@@ -383,7 +386,19 @@ LoadFileDialog ENDP
                     mov DWORD PTR [selectedTool], edx
                     push selectedTool
                     call SetSelectedTool
-                    invoke SetFocus, mainWindowHwnd
+                    invoke SetFocus, docHwnd
+
+                    invoke SendMessage, [hToolButtons + 0 * SIZEOF DWORD], BM_SETSTATE, 0, 0
+                    invoke SendMessage, [hToolButtons + 1 * SIZEOF DWORD], BM_SETSTATE, 0, 0
+                    invoke SendMessage, [hToolButtons + 2 * SIZEOF DWORD], BM_SETSTATE, 0, 0
+                    invoke SendMessage, [hToolButtons + 3 * SIZEOF DWORD], BM_SETSTATE, 0, 0
+                    invoke SendMessage, [hToolButtons + 4 * SIZEOF DWORD], BM_SETSTATE, 0, 0
+                    invoke SendMessage, [hToolButtons + 5 * SIZEOF DWORD], BM_SETSTATE, 0, 0
+                    invoke SendMessage, [hToolButtons + 6 * SIZEOF DWORD], BM_SETSTATE, 0, 0
+                    invoke SendMessage, [hToolButtons + 7 * SIZEOF DWORD], BM_SETSTATE, 0, 0
+
+                    mov ebx, wParam
+                    invoke SendMessage, [hToolButtons + ebx * SIZEOF DWORD], BM_SETSTATE, 1, 0
                 .ENDIF
                 
                 .IF wParam == 101

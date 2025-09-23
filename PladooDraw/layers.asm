@@ -20,6 +20,7 @@ EXTERN AddLayerButton: PROC
 EXTERN InitializeLayers: PROC
 EXTERN RemoveLayerButton: PROC
 
+Shortcuts proto :HWND,:WPARAM
 LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWORD, :PTR DWORD, :DWORD, :PTR WORD, :PTR BYTE
 
 .DATA                
@@ -31,8 +32,8 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
 
     szButtonAdd db "+", 0
     szButtonDelete db "-", 0
-    szButtonUp db "UP", 0
-    szButtonDown db "DOWN", 0
+    szButtonUp    db "Up", 0
+    szButtonDown db "Down", 0
     
     public layerID
     layerID DWORD 0
@@ -55,6 +56,7 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
 
     PUBLIC hLayerButtons
     hLayerButtons HWND ?
+
     hControlButtons HWND ?
 
     BtnLayerLabel db "Layer %d", 0
@@ -142,7 +144,7 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
         invoke GetClientRect, hWnd, addr rect
 
         mov eax, rect.right
-        sub eax, btnWidth
+        sub eax, 109
         mov screenWidth, eax
 
         mov eax, rect.bottom
@@ -152,10 +154,10 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
         NULL,\
         ADDR ClassName,\
         ADDR AppName,\
-        WS_CHILD or WS_VISIBLE or WS_BORDER,\
+        WS_CHILD or WS_VISIBLE or WS_BORDER or WS_VSCROLL,\
         screenWidth,\
         0,\ 
-        btnWidth,\
+        109,\
         screenHeight,\
         hWnd,\
         NULL,\
@@ -196,24 +198,34 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
         
             invoke SetWindowLong, hWnd, GWL_STYLE, dwStyle
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, 0, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or WS_BORDER or BS_AUTOCHECKBOX or BS_PUSHLIKE, 0, 0, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
             mov [hLayerButtons + 0 * SIZEOF DWORD], eax
             
             invoke GetClientRect, hWnd, addr rect   
 
             mov eax, rect.bottom
-            sub eax, 60
+            sub eax, 90
+            mov screenHeight, eax
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonUp, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, 45, 30, hWnd, 1003, hLayerInstance, NULL 
+            mov [hControlButtons + 0 * SIZEOF DWORD], eax
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDown, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 45, screenHeight, 45, 30, hWnd, 1004, hLayerInstance, NULL 
+            mov [hControlButtons + 1 * SIZEOF DWORD], eax
+
+            mov eax, screenHeight
+            add eax, 30
             mov screenHeight, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, btnWidth, 30, hWnd, 1001, hLayerInstance, NULL 
-            mov [hControlButtons + 0 * SIZEOF DWORD], eax
+            mov [hControlButtons + 2 * SIZEOF DWORD], eax
         
             mov eax, screenHeight
             add eax, 30
             mov screenHeight, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDelete, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, btnWidth, 30, hWnd, 1002, hLayerInstance, NULL 
-            mov [hControlButtons + 1 * SIZEOF DWORD], eax
+            mov [hControlButtons + 3 * SIZEOF DWORD], eax
 
             push 0
             push 0
@@ -252,7 +264,7 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
             .IF wParam == 1001
 
                 call GetActiveLayersCount
-                mov ecx, eax
+                mov edx, eax
                 
                 xor eax, eax
                 
@@ -266,7 +278,7 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
                 push 0
                 call AddLayer
 
-                invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or BS_BITMAP, 0, ebx, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
+                invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or WS_BORDER or BS_BITMAP, 0, ebx, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
                 mov [hLayerButtons + edx * SIZEOF DWORD], eax
 
                 push eax
@@ -281,44 +293,28 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
                 
             .ELSEIF wParam == 1002
                 call RemoveLayer
-                ;xor eax, eax
-
-                ;mov eax, 0
-                ;mov layerID, eax
-
                 call RemoveLayerButton
 
                 invoke InvalidateRect, hWndLayer, NULL, 1
                 invoke UpdateWindow, hWndLayer
 
                 invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW or RDW_ALLCHILDREN
-
-                ;dec layerID
-
-                call GetLayer
-                mov ecx, eax
-
-                dec ecx
-
-                cmp ecx, 0
-                jge LSetLayer
+                invoke SendMessageA, hWnd, WM_COMMAND, 1002, 0
                 
-                mov ecx, 0
-                
-                LSetLayer:
-                    push ecx
-                    call SetLayer
+                call RenderLayers
 
-                    cmp ecx, 0
-                    jge LRenderLayers
-
-                    invoke SendMessageA, hWnd, WM_COMMAND, 1002, 0
-                
-                LRenderLayers: 
-                    call RenderLayers
-
-                    xor eax, eax
-                    ret
+                xor eax, eax
+                ret
+            .ELSEIF wParam == 1003
+                 push VK_UP
+                 push hWnd
+                 call Shortcuts
+                ret
+            .ELSEIF wParam == 1004
+                 push VK_DOWN
+                 push hWnd
+                 call Shortcuts
+                ret
             .ELSE 
                 push wParam
                 call SetLayer

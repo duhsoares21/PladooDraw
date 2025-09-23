@@ -17,6 +17,7 @@
     <None Include="..\Release\cursors\line.cur" />
     <None Include="..\Release\cursors\move.cur" />
     <None Include="..\Release\cursors\rectangle.cur" />
+    <None Include="..\release\cursors\cursor8.cur" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
