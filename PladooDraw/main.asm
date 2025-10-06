@@ -13,11 +13,8 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
 EXTERN Initialize:proc
 EXTERN AddLayer:proc
-EXTERN InitializeLayerRenderPreview:proc
-WinMain proto
-WinDocument proto :HWND
-WinTool proto :HWND
-WinLayer proto :HWND
+
+WinMain PROTO
 
 .DATA                
     PUBLIC windowTitleInformation
@@ -47,6 +44,13 @@ WinLayer proto :HWND
     inSession dd 0
 
     PUBLIC pPixelSizeRatio
+
+    PUBLIC panOffsetX
+    panOffsetX DWORD 0
+
+    PUBLIC panOffsetY
+    panOffsetY DWORD 0
+
     pPixelSizeRatio dd 1
         
     msg MSG <>
@@ -69,19 +73,24 @@ WinLayer proto :HWND
     PUBLIC docHwnd
     docHwnd HWND ?
 
+    PUBLIC toolsHwnd
+    toolsHwnd HWND ?
+
+    public layersHwnd
+    layersHwnd HWND ?
+
+    public layersListHwnd
+    layersListHwnd HWND ?
+
+    public documentWidth
+    documentWidth DWORD ?
+
+    public documentHeight
+    documentHeight DWORD ?
 .CODE                
     start:
         
-        invoke WinMain    
-        mov mainHwnd, eax
-        
-        invoke WinTool, mainHwnd
-        invoke WinDocument, mainHwnd
-        invoke WinLayer, mainHwnd
-
-        ;push 0
-        ;call AddLayer
-        call InitializeLayerRenderPreview
+        invoke WinMain
                 
         .WHILE TRUE                                               
             invoke GetMessage, ADDR msg,NULL,0,0

@@ -8,12 +8,10 @@ include \masm32\include\gdi32.inc
 include \masm32\include\shell32.inc
 include \masm32\include\kernel32.inc
 include \masm32\include\msimg32.inc
-include \masm32\include\gdiplus.inc
 
 include resource_cursors.inc
 
 includelib \masm32\lib\msimg32.lib
-includelib \masm32\lib\gdiplus.lib
 
 includelib PladooDraw_Direct2D_LayerSystem.lib
 
@@ -34,11 +32,13 @@ EXTERN DrawLayerPreview:PROC
 EXTERN ZoomIn_Default:proc
 EXTERN ZoomOut_Default:proc
 
+EXTERN InitializeLayerRenderPreview:proc
+EXTERN GetActiveLayersCount:proc
+
 Resize PROTO STDCALL :DWORD, :DWORD
 SelectTool PROTO STDCALL :DWORD, :DWORD
 MoveTool PROTO STDCALL :DWORD, :DWORD, :DWORD, :DWORD
 
-RepositionLayerToolbar proto :DWORD,:DWORD,:DWORD,:DWORD
 Shortcuts proto :HWND,:WPARAM
 Paint proto :HWND,:DWORD,:DWORD
 TBrush proto :DWORD, :DWORD, :COLORREF, :DWORD
@@ -47,39 +47,47 @@ TWrite proto :DWORD, :DWORD
 TSelect proto
 TMove proto :DWORD, :DWORD
 
+WinDocument proto :HWND
+WinTool proto :HWND
+WinLayer proto :HWND
+
 .DATA 
+    EXTERN isMouseDown:BYTE
+    EXTERN brushSize:DWORD
+    EXTERN color:COLORREF
+    EXTERN hLayerButtons:HWND
+    EXTERN selectedTool:DWORD
+    EXTERN xInitial:DWORD
+    EXTERN yInitial:DWORD
+    EXTERN mainHwnd:HWND
+    EXTERN docHwnd:HWND
+    EXTERN layersHwnd:HWND
+    EXTERN toolsHwnd:HWND
+    EXTERN panOffsetX:DWORD
+    EXTERN panOffsetY:DWORD
+    EXTERN hControlButtons:HWND
+    EXTERN pPixelSizeRatio:DWORD     
+    EXTERN windowTitleInformation:BYTE
+	EXTERN windowTitleError:BYTE
+    EXTERN inSession:DWORD
+    EXTERN documentWidth:DWORD
+    EXTERN documentHeight:DWORD
 
     ClassName db "MainWindowClass",0   
     DocClassName db "DocWindowClass",0   
     AppName db "Pladoo Draw",0 
     AppNameDoc db "Pladoo Draw Document",0 
 
+    szButtonClass db "BUTTON", 0
+
+    szButton512 db "SQUARE (1:1)", 0
+    szButton720 db "RECTANGLE (16:9)", 0
+
     szErrorCreatingDoc db "Erro ao criar a janela do documento.",0
     szErrorTitle       db "Erro",0  
 
-    EXTERN isMouseDown:BYTE
-    EXTERN brushSize:DWORD
-    EXTERN color:COLORREF
-
-    EXTERN selectedTool:DWORD
-
-    EXTERN xInitial:DWORD
-    EXTERN yInitial:DWORD
-
-    EXTERN mainHwnd:HWND
-    EXTERN docHwnd:HWND
-
-    EXTERN pPixelSizeRatio:DWORD     
-
     msgText db 256 dup(0)
     msgFmt db "WM_SETUP_DIAL Thread ID: %d", 0  
-
-    EXTERN windowTitleInformation:BYTE
-	EXTERN windowTitleError:BYTE
-    
-    EXTERN inSession:DWORD
-
-    gdiplusStartupInput GdiplusStartupInput <>
 
     gX dd 0
     gY dd 0
@@ -87,8 +95,28 @@ TMove proto :DWORD, :DWORD
     PUBLIC pixelModeFlag
     pixelModeFlag DWORD 0
 
-    hInstance HINSTANCE ?                       
+    screenWidth DWORD 0
+    screenHeight DWORD 0
 
+    mainWindowWidth dd 0
+    mainWindowHeight dd 0
+
+    NewButtonPositionX DWORD 0
+    NewButtonPositionY DWORD 0
+    NewButtonHeight DWORD 0
+    WidthSquare DWORD 0
+    WidthRect DWORD 0
+    Spacing DWORD 0
+    TotalWidth DWORD 0  
+    HalfTotal DWORD 0
+    CenterX DWORD 0
+    CenterY DWORD 0
+    LeftX DWORD 0
+    SetupProjectRect RECT {0,0,0,0}
+
+.DATA?
+    mainHdc HDC ?
+    hInstance HINSTANCE ?                       
     hDefaultCursor HCURSOR ?
     hEraserCursor HCURSOR ?
     hBrushCursor HCURSOR ?
@@ -100,23 +128,143 @@ TMove proto :DWORD, :DWORD
     hTextCursor HCURSOR ?
 
     hMainInstance HINSTANCE ?
-    hDocInstance HINSTANCE ?     
-
-    screenWidth DWORD 0
-    screenHeight DWORD 0
-
-    mainHdc HDC ?
-
-    mainWindowWidth dd 0
-    mainWindowHeight dd 0
-
-.DATA?
+    hDocInstance HINSTANCE ? 
+    
     lpMsgBuf dd ?    ; ponteiro para mensagem de erro formatada
+
+    button512 HWND ?
+    button720 HWND ?
+
+    lastMouseX DWORD ?
+    lastMouseY DWORD ?
+    
 .CODE
+
+SetupProject proc hWnd:HWND
+    ; 1) pega área cliente
+    invoke GetClientRect, hWnd, ADDR SetupProjectRect
+
+    ; largura = right - left
+    mov eax, SetupProjectRect.right
+    mov ecx, SetupProjectRect.left
+    sub eax, ecx
+    mov mainWindowWidth, eax
+
+    ; altura = bottom - top
+    mov eax, SetupProjectRect.bottom
+    mov ecx, SetupProjectRect.top
+    sub eax, ecx
+    mov mainWindowHeight, eax
+
+    ; 2) calcula centro (X e Y)
+    mov eax, mainWindowWidth
+    xor edx, edx
+    mov ecx, 2
+    div ecx
+    mov CenterX, eax
+
+    mov eax, mainWindowHeight
+    xor edx, edx
+    mov ecx, 2
+    div ecx
+    mov CenterY, eax
+
+    ; 3) calcula altura dos botões = 1/3 da altura da janela
+    mov eax, mainWindowHeight
+    xor edx, edx
+    mov ecx, 3
+    div ecx
+    mov NewButtonHeight, eax         ; altura comum aos 2 botões
+
+    ; 4) largura do botão quadrado = mesma altura
+    mov eax, NewButtonHeight
+    mov WidthSquare, eax
+
+    ; 5) largura do botão retangular = height * 16 / 9
+    mov eax, NewButtonHeight
+    mov ecx, 16
+    mul ecx                          ; EDX:EAX = height * 16
+    mov ecx, 9
+    div ecx                          ; EAX = (height*16)/9
+    mov WidthRect, eax
+
+    ; 6) spacing entre botões (ajuste se quiser)
+    mov eax, 20
+    mov Spacing, eax
+
+    ; 7) totalWidth = widthSquare + spacing + widthRect
+    mov eax, WidthSquare
+    add eax, Spacing
+    add eax, WidthRect
+    mov TotalWidth, eax
+
+    ; 8) halfTotal = totalWidth / 2
+    mov eax, TotalWidth
+    shr eax, 1
+    mov HalfTotal, eax
+
+    ; 9) leftX = centerX - halfTotal  (início do bloco centralizado)
+    mov eax, CenterX
+    sub eax, HalfTotal
+    mov LeftX, eax
+
+    ; 10) calcula Y dos botões (centerY - height/2)
+    mov eax, CenterY
+    mov ecx, NewButtonHeight
+    shr ecx, 1
+    sub eax, ecx
+    mov NewButtonPositionY, eax
+
+    ; 11) cria botão SQUARE (1:1) na posição LeftX
+    mov eax, LeftX
+    mov NewButtonPositionX, eax
+    invoke CreateWindowEx, 0, ADDR szButtonClass, ADDR szButton512, \
+        WS_CHILD or WS_VISIBLE or BS_FLAT, \
+        NewButtonPositionX, NewButtonPositionY, \
+        WidthSquare, NewButtonHeight, \
+        hWnd, 512, hMainInstance, NULL
+    mov button512, eax
+
+    ; 12) button RECTANGLE X = LeftX + widthSquare + spacing
+    mov eax, LeftX
+    add eax, WidthSquare
+    add eax, Spacing
+    mov NewButtonPositionX, eax
+
+    invoke CreateWindowEx, 0, ADDR szButtonClass, ADDR szButton720, \
+        WS_CHILD or WS_VISIBLE or BS_FLAT, \
+        NewButtonPositionX, NewButtonPositionY, \
+        WidthRect, NewButtonHeight, \
+        hWnd, 720, hMainInstance, NULL
+    mov button720, eax
+    ret
+SetupProject endp
+
+StartDraw proc
+    invoke DestroyWindow, button512
+    invoke DestroyWindow, button720
+    
+    invoke WinDocument, mainHwnd
+    invoke WinLayer, mainHwnd
+    invoke WinTool, mainHwnd
+
+    call GetActiveLayersCount
+    mov ecx, eax
+        
+    invoke SetWindowPos, layersHwnd, HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
+    invoke SetWindowPos, toolsHwnd, HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
+    invoke SetWindowPos, [hControlButtons + 0 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
+    invoke SetWindowPos, [hControlButtons + 1 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
+    invoke SetWindowPos, [hControlButtons + 2 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
+    invoke SetWindowPos, [hControlButtons + 3 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
+    
+    call InitializeLayerRenderPreview
+
+    ret
+StartDraw endp
 
 WinMain proc
         LOCAL wc:WNDCLASSEX                                         
-        LOCAL msg:MSG
         LOCAL hwnd:HWND
         LOCAL workArea: RECT
 
@@ -170,6 +318,7 @@ WinMain proc
         invoke UpdateWindow, hwnd
         
         mov eax, hwnd
+        mov mainHwnd, eax
         
         ret 
     WinMain endp
@@ -177,11 +326,6 @@ WinMain proc
     WinDocument proc hWnd:HWND
         LOCAL rect:RECT
         LOCAL wc:WNDCLASSEX                                         
-        LOCAL msg:MSG
-        LOCAL hwndDocument:HWND
-
-        LOCAL documentWidth:DWORD
-        LOCAL documentHeight:DWORD
 
         LOCAL canvasWidth:DWORD
         LOCAL canvasHeight:DWORD
@@ -195,29 +339,42 @@ WinMain proc
         LOCAL centerX: DWORD
         LOCAL centerY: DWORD
 
-        mov documentWidth, 512
-        mov documentHeight, 512
-
         mov eax, documentWidth
-        mov ecx, 16
+        mov ecx, 32
+        xor edx, edx
+        div ecx
+
+        mov edx, eax
+        
+        mov eax, documentWidth
+        mov ecx, edx
+        xor edx, edx
         div ecx
 
         mov canvasWidth, eax
 
         xor eax, eax
         xor ecx, ecx
+        xor edx, edx
 
         mov eax, documentHeight
-        mov ecx, 16
+        mov ecx, 32
+        xor edx, edx
+        div ecx
+
+        mov edx, eax
+
+        mov eax, documentHeight
+        mov ecx, edx
+        xor edx, edx
         div ecx
                 
         mov canvasHeight, eax
-
-        mov eax, documentWidth
-        mov ecx, canvasWidth
-        div ecx
-
         mov pPixelSizeRatio, eax
+
+        xor eax, eax
+        xor ecx, ecx
+        xor edx, edx
 
         invoke GetClientRect, hWnd, addr rect
 
@@ -332,13 +489,18 @@ WinMain proc
 
         mov eax, 0
 
+        mov eax, centerX
+        mov panOffsetX, eax
+        mov eax, centerY
+        mov panOffsetY, eax
+
         invoke RegisterClassEx, addr wc
 
         invoke CreateWindowEx, 
         NULL,\ 
         ADDR DocClassName,\ 
         ADDR AppNameDoc,\ 
-        WS_CHILD or WS_VISIBLE or WS_CLIPCHILDREN,\ 
+        WS_CHILD or WS_VISIBLE or WS_CLIPCHILDREN or WS_CLIPSIBLINGS,\ 
         centerX,\ 
         centerY,\ 
         documentWidth,\ 
@@ -348,18 +510,19 @@ WinMain proc
         hDocInstance,\ 
         NULL
 
-        mov hwndDocument, eax
+        mov docHwnd, eax
 
-        invoke ShowWindow, hwndDocument, SW_SHOW
-        invoke UpdateWindow, hwndDocument
+        invoke ShowWindow, eax, SW_SHOW
+        invoke UpdateWindow, eax
     
-        mov eax, hwndDocument
+        mov eax, docHwnd
 
         ret
     WinDocument endp
 
     WndMainProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
         LOCAL dwStyle:DWORD
+        LOCAL rect:RECT
 
         .IF uMsg==WM_DESTROY
                 
@@ -367,7 +530,6 @@ WinMain proc
             invoke PostQuitMessage,NULL
 
             ret
-
         .ELSEIF uMsg == WM_SIZE
 
             mov eax, lParam
@@ -377,12 +539,6 @@ WinMain proc
             mov eax, lParam
             shr eax, 16              
             mov mainWindowHeight, eax
-
-            push mainWindowHeight
-            push 120
-            push 0
-            push mainWindowWidth
-            call RepositionLayerToolbar
             
             invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
             ret
@@ -398,6 +554,31 @@ WinMain proc
             invoke SetCursor, hDefaultCursor
 
             ret
+        .ELSEIF uMsg == WM_SHOWWINDOW
+            push hWnd
+            call SetupProject
+            ret
+        .ELSEIF uMsg == WM_COMMAND
+            .IF wParam == 512
+                mov ecx, wParam
+                mov documentWidth, ecx
+                mov documentHeight, ecx
+
+                xor ecx, ecx
+
+                invoke StartDraw
+                ret
+            .ELSEIF wParam == 720
+              
+                mov documentWidth, 1280
+                mov documentHeight, 720
+                
+                xor ecx, ecx
+
+                invoke StartDraw
+                ret
+            .ENDIF
+
         .ELSE
             invoke DefWindowProc,hWnd,uMsg,wParam,lParam
             ret
@@ -411,13 +592,47 @@ WinMain proc
         LOCAL mousePosition:POINT
         LOCAL lowLPARAM:DWORD
         LOCAL highLPARAM:DWORD
-                        
+        LOCAL pt:POINT
+        
         .IF uMsg==WM_KEYDOWN
                 
             push wParam
             push hWnd
             call Shortcuts
 
+            ret
+        .ELSEIF uMsg == WM_MBUTTONDOWN
+
+            ; Captura posição inicial global do mouse
+            invoke GetCursorPos, addr pt
+            mov eax, pt.x
+            mov lastMouseX, eax
+            mov eax, pt.y
+            mov lastMouseY, eax
+
+            ; Captura mouse para eventos globais (mesmo fora da janela)
+            invoke SetCapture, hWnd
+
+            ; Extrai posição client para xInitial/yInitial (mantém compatibilidade)
+            mov eax, lParam
+            and eax, 0FFFFh
+            mov xInitial, eax
+
+            mov eax, lParam
+            shr eax, 16
+            mov yInitial, eax
+
+            mov byte ptr [isMouseDown], 2   ; 2 = modo Pan
+            ret
+        .ELSEIF uMsg == WM_MBUTTONUP
+            mov byte ptr [isMouseDown], 0
+    
+            ; Libera captura do mouse
+            invoke ReleaseCapture
+    
+            ; Opcional: Força repintura para consistência final (sem desabilitar antes)
+            invoke InvalidateRect, hWnd, NULL, TRUE
+            invoke UpdateWindow, hWnd
             ret
         .ELSEIF uMsg == WM_SETCURSOR
                 
@@ -444,6 +659,7 @@ WinMain proc
             ret
         .ELSEIF uMsg==WM_CREATE
 
+            push hLayerButtons
             push -1
             push -1
             push -1
@@ -484,12 +700,6 @@ WinMain proc
                 .IF pixelModeFlag == 1
                     invoke TBrush, xInitial, yInitial, color, pixelModeFlag
                     call RenderLayers
-
-                    ;call GetLayer
-                  
-                    ;push eax
-                    ;call DrawLayerPreview
-
                     xor eax, eax
                 .ENDIF
             .ELSEIF DWORD PTR [selectedTool] == 5
@@ -518,31 +728,61 @@ WinMain proc
             call handleMouseUp
 
         .ELSEIF uMsg==WM_MOUSEMOVE
-                
-            ;Extraindo mouse X
-            mov eax, lParam
-            and eax, 0FFFFh        ; X f�sico
-            mov gX, eax
+               
+            cmp byte ptr [isMouseDown], 2
+            jne SkipPan
 
-            ; Extraindo mouse Y
-            mov eax, lParam
-            shr eax, 16            ; Y f�sico
-            mov gY, eax
+            ; Captura posição atual global do mouse
+            invoke GetCursorPos, addr pt
+    
+            ; Calcula delta global (X)
+            mov eax, pt.x
+            sub eax, lastMouseX
+            add panOffsetX, eax
+    
+            ; Calcula delta global (Y)
+            mov ecx, pt.y
+            sub ecx, lastMouseY
+            add panOffsetY, ecx
+    
+            ; Atualiza última posição para próximo delta
 
-            invoke Paint, hWnd, gX, gY
+            mov eax, pt.x
+            mov lastMouseX, eax
+
+            mov eax, pt.y
+            mov lastMouseY, eax
+    
+            ; Move a janela com o novo offset (TRUE para repintar)
+            invoke SetWindowPos, hWnd, 0, panOffsetX, panOffsetY, 0, 0, SWP_NOSIZE or SWP_NOZORDER
+
+            jmp LEndProc
+
+            SkipPan:
+                ;Extraindo mouse X
+                mov eax, lParam
+                and eax, 0FFFFh        ; X f�sico
+                mov gX, eax
+
+                ; Extraindo mouse Y
+                mov eax, lParam
+                shr eax, 16            ; Y f�sico
+                mov gY, eax
+
+                invoke Paint, hWnd, gX, gY
             
-            cmp byte ptr [isMouseDown], 1
-            jne LEndProc
+                cmp byte ptr [isMouseDown], 1
+                jne LEndProc
 
-            cmp DWORD PTR [selectedTool], 5 
-            je LEndProc
+                cmp DWORD PTR [selectedTool], 5 
+                je LEndProc
 
-            cmp DWORD PTR [selectedTool], 7 
-            je LEndProc
+                cmp DWORD PTR [selectedTool], 7 
+                je LEndProc
             
-            call RenderLayers
+                call RenderLayers
 
-            xor eax, eax
+                xor eax, eax
 
             LEndProc:
             ret
@@ -752,6 +992,6 @@ Paint Proc hWnd:HWND, x:DWORD, y:DWORD
         invoke ReleaseDC, hWnd, hdc
     NoRelease:
         ret
-Paint endp
+Paint endp 
 
 end

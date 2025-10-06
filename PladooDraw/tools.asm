@@ -7,14 +7,41 @@ include \masm32\include\user32.inc
 include \masm32\include\gdi32.inc
 include \masm32\include\kernel32.inc
 include \masm32\include\comdlg32.inc
+include \masm32\include\shell32.inc
 
 include resource_icons.inc
 
+includelib shell32.lib
 includelib PladooDraw_Direct2D_LayerSystem.lib
 
+EXTERN Cleanup:proc
+EXTERN SetSelectedTool:proc
+
+SaveProjectDll PROTO STDCALL :PTR BYTE
+LoadProjectDll PROTO STDCALL :PTR WORD
+    
+SetFont PROTO STDCALL
+ExportSVG PROTO STDCALL
+
 .DATA                
-    ClassName db "ToolbarWindowClass",0                 
-    AppName db "Tool Window",0                 
+    EXTERN selectedTool:DWORD
+    EXTERN brushSize:DWORD
+    EXTERN color:COLORREF
+
+    EXTERN msgText:BYTE
+	EXTERN msgFmt:BYTE
+
+    EXTERN windowTitleInformation:BYTE
+	EXTERN windowTitleError:BYTE
+
+    EXTERN btnWidth:DWORD
+    EXTERN btnHeight:DWORD
+    EXTERN layerID:DWORD
+
+    EXTERN docHwnd :HWND
+
+    ToolClassName db "ToolbarWindowClass",0                 
+    ToolAppName db "Tool Window",0                 
 
     szButtonBrush db "(B)", 0
     szButtonRectangle db "(R)", 0
@@ -27,7 +54,9 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
     szButtonFont db "Choose Font", 0
     szButtonSave db "Save (S)", 0
     szButtonLoad db "Load (K)", 0
+    szButtonExport db "Export (X)", 0
     szPixelText db "Pixel Mode", 0
+    szButtonNewProject db "New Project", 0
 
     szErrorFont db "Failed to choose font", 0
     szTitleSuccess db "Success", 0
@@ -59,29 +88,10 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
           db 0
     defaultExt db 'pdd',0
 
-    EXTERN selectedTool:DWORD
-    EXTERN brushSize:DWORD
-    EXTERN color:COLORREF
+    fileNameBuffer db MAX_PATH dup(0)     ; buffer onde o caminho do exe será guardado
+    openCmd        db "open",0            ; ShellExecute precisa dessa string terminada em 0
 
-    EXTERN msgText:BYTE
-	EXTERN msgFmt:BYTE
-
-    EXTERN windowTitleInformation:BYTE
-	EXTERN windowTitleError:BYTE
-
-    EXTERN btnWidth:DWORD
-    EXTERN btnHeight:DWORD
-    EXTERN layerID:DWORD
-
-    EXTERN docHwnd :HWND
     toolCount EQU 8
-
-    EXTERN SetSelectedTool:proc
-    
-    SaveProjectDll PROTO STDCALL :PTR BYTE
-    LoadProjectDll PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWORD, :PTR DWORD, :DWORD, :PTR WORD, :PTR BYTE
-    
-    SetFont PROTO STDCALL
 
     CHOOSECOLOR STRUCT
         lStructSize      DWORD ?
@@ -98,8 +108,6 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
 .DATA?           
 
-    mainWindowHwnd HWND ?
-
     hToolInstance HINSTANCE ?                       
 
     hDefaultCursor HCURSOR ?
@@ -108,8 +116,12 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
     unicode_filename WCHAR MAX_PATH dup(?)
 
+    EXTERN toolsHwnd:HWND
+
+    EXTERN mainHwnd:HWND
+
     EXTERN hLayerButtons:HWND
-    EXTERN hWndLayer:HWND
+    EXTERN layersHwnd:HWND
     EXTERN hLayerInstance:HINSTANCE
 
     EXTERN pixelModeFlag:DWORD
@@ -131,7 +143,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
         ; Configura o OPENFILENAME
         mov ofn.lStructSize, sizeof ofn
-        push mainWindowHwnd
+        push mainHwnd
         pop ofn.hwndOwner
         mov ofn.lpstrFile, offset saveFilePath
         mov ofn.nMaxFile, MAX_PATH
@@ -153,7 +165,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 LoadFileDialog PROC
     invoke RtlZeroMemory, addr ofnOpen, sizeof ofnOpen
     mov ofnOpen.lStructSize, sizeof ofnOpen
-    push mainWindowHwnd
+    push mainHwnd
     pop ofnOpen.hwndOwner
     mov ofnOpen.lpstrFile, offset openFilePath
     mov ofnOpen.nMaxFile, MAX_PATH
@@ -164,14 +176,13 @@ LoadFileDialog PROC
     invoke GetOpenFileName, addr ofnOpen
     .if eax != 0
         ; Mostra o nome do arquivo selecionado
-        invoke LoadProjectDll, addr openFilePath, hWndLayer, hLayerInstance, btnWidth, btnHeight, addr hLayerButtons, addr layerID, addr szButtonClass, addr msgText
+        invoke LoadProjectDll, addr openFilePath
     .endif
     ret
 LoadFileDialog ENDP
 
     
     WinTool proc hWnd:HWND    
-        LOCAL hWndToolbar:HWND
         LOCAL rect:RECT
 
         LOCAL wc:WNDCLASSEX                                         
@@ -190,7 +201,7 @@ LoadFileDialog ENDP
 
         mov wc.hbrBackground,COLOR_BTNFACE+1
         mov wc.lpszMenuName,NULL
-        mov wc.lpszClassName,OFFSET ClassName
+        mov wc.lpszClassName,OFFSET ToolClassName
         
         invoke LoadIcon,NULL,IDI_APPLICATION
 
@@ -209,9 +220,9 @@ LoadFileDialog ENDP
 
         invoke CreateWindowEx,
         NULL,\
-        ADDR ClassName,\
-        ADDR AppName,\
-        WS_CHILD or WS_VISIBLE or WS_BORDER,\
+        ADDR ToolClassName,\
+        ADDR ToolAppName,\
+        WS_CHILD or WS_VISIBLE or WS_BORDER or WS_CLIPSIBLINGS,\
         0,\
         0,\
         120,\
@@ -221,13 +232,10 @@ LoadFileDialog ENDP
         hToolInstance,\
         NULL
 
-        mov hWndToolbar, eax
+        mov toolsHwnd, eax
 
-        mov ecx, hWnd
-        mov mainWindowHwnd, ecx
-
-        invoke ShowWindow,hWndToolbar,SW_SHOWDEFAULT
-        invoke UpdateWindow, hWndToolbar
+        invoke ShowWindow,toolsHwnd,SW_SHOWDEFAULT
+        invoke UpdateWindow, toolsHwnd
            
         ret
     WinTool endp
@@ -235,7 +243,6 @@ LoadFileDialog ENDP
     ToolWndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM       
         LOCAL dwStyle:DWORD
         LOCAL rect:RECT
-        LOCAL hwndButton: HWND
         LOCAL hBrush:HBRUSH
         LOCAL cc:CHOOSECOLOR
                                         
@@ -347,11 +354,20 @@ LoadFileDialog ENDP
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonLoad, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 210, 120, 30, hWnd, 103, hToolInstance, NULL
             mov [hToolButtons + 11 * SIZEOF DWORD], eax
 
-            ; Checkbox: Pixel Mode
-            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szPixelText, WS_CHILD or WS_VISIBLE or BS_AUTOCHECKBOX, 0, 240, 120, 30, hWnd, 104, hToolInstance, NULL
+            ;Export Button
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonExport, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 240, 120, 30, hWnd, 106, hToolInstance, NULL
             mov [hToolButtons + 12 * SIZEOF DWORD], eax
+            
+            ; Checkbox: Pixel Mode
+            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szPixelText, WS_CHILD or WS_VISIBLE or BS_AUTOCHECKBOX, 0, 270, 120, 30, hWnd, 104, hToolInstance, NULL
+            mov [hToolButtons + 13 * SIZEOF DWORD], eax
 
-            mov hwndButton, eax
+            mov eax, screenHeight
+            sub eax, 30
+
+            ;New Button
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonNewProject, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, eax, 120, 30, hWnd, 107, hToolInstance, NULL
+            mov [hToolButtons + 14 * SIZEOF DWORD], eax
 
             ret
         .ELSEIF uMsg == WM_DRAWITEM
@@ -416,7 +432,7 @@ LoadFileDialog ENDP
                         mov eax, cc.rgbResult
                         mov color, eax
                         invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
-                        invoke SetFocus, mainWindowHwnd
+                        invoke SetFocus, mainHwnd
                     .ENDIF
                 .ENDIF
 
@@ -440,6 +456,19 @@ LoadFileDialog ENDP
 
                  .IF wParam == 105  
                     invoke SetFont
+                    ret
+                .ENDIF
+
+                 .IF wParam == 106
+                    invoke ExportSVG
+                    ret
+                .ENDIF
+
+                .IF wParam == 107
+                    invoke GetModuleFileName, NULL, addr fileNameBuffer, MAX_PATH
+                    invoke ShellExecute, NULL, addr openCmd, addr fileNameBuffer, NULL, NULL, SW_SHOWNORMAL
+                    invoke ExitProcess, 0
+                    ret
                 .ENDIF
 
                 invoke SetFocus, hWnd

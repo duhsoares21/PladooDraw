@@ -18,10 +18,13 @@ EXTERN GetActiveLayersCount: PROC
 EXTERN LayersCount: PROC
 EXTERN AddLayerButton: PROC
 EXTERN InitializeLayers: PROC
+EXTERN InitializeLayersButtons: PROC
 EXTERN RemoveLayerButton: PROC
+EXTERN OnScrollWheelLayers: PROC
 
-Shortcuts proto :HWND,:WPARAM
-LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWORD, :PTR DWORD, :DWORD, :PTR WORD, :PTR BYTE
+Shortcuts PROTO :HWND,:WPARAM
+IsLayerActive PROTO :DWORD, :PTR DWORD
+LoadProjectDllW PROTO STDCALL :PTR WORD
 
 .DATA                
     ClassName db "LayerWindowClass",0                 
@@ -30,14 +33,24 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
     public szButtonClass
     szButtonClass db "BUTTON", 0
 
+    isActive dd 0
+
     szButtonAdd db "+", 0
     szButtonDelete db "-", 0
     szButtonUp    db "Up", 0
     szButtonDown db "Down", 0
+
+    counter DWORD 0
+    counterActive DWORD 0
+    totalValidLayers DWORD 0
+    hasValue DWORD 0
+    pt POINT <0,0>
+
+    szTitle db "Debug",0
     
     public layerID
     layerID DWORD 0
-    totalLayerCount DWORD 0
+    totalLayerCount DWORD 1
 
     screenWidth DWORD 0
     screenHeight DWORD 0
@@ -57,7 +70,8 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
     PUBLIC hLayerButtons
     hLayerButtons HWND ?
 
-    hControlButtons HWND ?
+    PUBLIC hControlButtons
+    hControlButtons HWND 4 DUP(?)
 
     BtnLayerLabel db "Layer %d", 0
         
@@ -68,9 +82,11 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
 	EXTERN windowTitleError:BYTE
 
 .DATA?           
-    PUBLIC hWndLayer
-    hWndLayer HWND ?
-    mainHwnd HWND ?    
+    EXTERN layersHwnd:HWND
+    EXTERN mainHwnd:HWND
+
+    EXTERN documentWidth:DWORD
+    EXTERN documentHeight:DWORD
 
     PUBLIC hLayerInstance
     hLayerInstance HINSTANCE ?                       
@@ -83,31 +99,6 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
     pFilePath   LPWSTR ? 
 
 .CODE          
-
-    RepositionLayerToolbar proc xPos:DWORD, yPos:DWORD, nWidth:DWORD, nHeight:DWORD
-        LOCAL rect:RECT
-
-        mov ecx, xPos
-        sub ecx, nWidth
-        mov xPos, ecx
-
-        invoke MoveWindow, hWndLayer, xPos, yPos, nWidth, nHeight, TRUE
-
-        invoke GetClientRect, hWndLayer, addr rect
-
-        mov eax, rect.bottom
-        sub eax, 60
-        mov screenHeight, eax
-
-        invoke MoveWindow, [hLayerButtons + 0 * SIZEOF DWORD], 0, screenHeight, 120, 30, TRUE
-       
-        mov eax, screenHeight
-        add eax, 30
-        mov screenHeight, eax
-
-        invoke MoveWindow, [hLayerButtons + 1 * SIZEOF DWORD], 0, screenHeight, 120, 30, TRUE
-        ret
-    RepositionLayerToolbar endp
 
     WinLayer proc hWnd:HWND         
         LOCAL rect:RECT
@@ -143,8 +134,16 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
 
         invoke GetClientRect, hWnd, addr rect
 
+        .IF documentWidth > 512
+            mov btnWidth, 160
+            mov btnHeight, 90
+        .ELSE
+            mov btnWidth, 90
+            mov btnHeight, 90
+        .ENDIF
+
         mov eax, rect.right
-        sub eax, 109
+        sub eax, btnWidth
         mov screenWidth, eax
 
         mov eax, rect.bottom
@@ -154,26 +153,20 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
         NULL,\
         ADDR ClassName,\
         ADDR AppName,\
-        WS_CHILD or WS_VISIBLE or WS_BORDER or WS_VSCROLL,\
+        WS_CHILD or WS_VISIBLE or WS_BORDER,\
         screenWidth,\
         0,\ 
-        109,\
+        btnWidth,\
         screenHeight,\
         hWnd,\
         NULL,\
         hLayerInstance,\
         NULL
         
-        mov hWndLayer, eax
-
-        push hWndLayer
-        call InitializeLayers
-
-        mov ecx, hWnd
-        mov mainHwnd, ecx
+        mov layersHwnd, eax
         
-        invoke ShowWindow,hWndLayer,SW_SHOWDEFAULT  
-        invoke UpdateWindow, hWndLayer
+        invoke ShowWindow,layersHwnd,SW_SHOWDEFAULT  
+        invoke UpdateWindow, layersHwnd
            
         ret
     WinLayer endp
@@ -183,49 +176,73 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
         LOCAL parentRect:RECT
         LOCAL rect:RECT
         LOCAL className:DWORD
+       
+        LOCAL layerParentWidth:DWORD
+        LOCAL layerParentHeight:DWORD
 
         .IF uMsg==WM_DESTROY                               
 
             invoke PostQuitMessage,NULL
 
             ret
-        .ELSEIF uMsg == WM_CREATE
+        .ELSEIF uMsg == WM_MOUSEWHEEL
 
+            push wParam
+            call OnScrollWheelLayers
+            ret
+            
+        .ELSEIF uMsg == WM_CREATE
+            
             invoke GetWindowLong, hWnd, GWL_STYLE
             mov dwStyle, eax
         
             and dwStyle, NOT WS_SYSMENU
         
             invoke SetWindowLong, hWnd, GWL_STYLE, dwStyle
-
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or WS_BORDER or BS_AUTOCHECKBOX or BS_PUSHLIKE, 0, 0, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
-            mov [hLayerButtons + 0 * SIZEOF DWORD], eax
             
             invoke GetClientRect, hWnd, addr rect   
 
             mov eax, rect.bottom
-            sub eax, 90
+            sub eax, btnHeight
             mov screenHeight, eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonUp, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, 45, 30, hWnd, 1003, hLayerInstance, NULL 
-            mov [hControlButtons + 0 * SIZEOF DWORD], eax
+            xor eax, eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDown, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 45, screenHeight, 45, 30, hWnd, 1004, hLayerInstance, NULL 
-            mov [hControlButtons + 1 * SIZEOF DWORD], eax
+            mov eax, btnWidth
+            mov ecx, 2
+            div ecx
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonUp, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, eax, 30, hWnd, 1003, hLayerInstance, NULL 
+            mov hControlButtons[10 * SIZEOF DWORD], eax
+
+            xor eax, eax
+
+            mov eax, btnWidth
+            mov ecx, 2
+            div ecx
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDown, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, screenHeight, eax, 30, hWnd, 1004, hLayerInstance, NULL 
+            mov hControlButtons[11 * SIZEOF DWORD], eax
 
             mov eax, screenHeight
             add eax, 30
             mov screenHeight, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, btnWidth, 30, hWnd, 1001, hLayerInstance, NULL 
-            mov [hControlButtons + 2 * SIZEOF DWORD], eax
+            mov hControlButtons[12 * SIZEOF DWORD], eax
         
             mov eax, screenHeight
             add eax, 30
             mov screenHeight, eax
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDelete, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, btnWidth, 30, hWnd, 1002, hLayerInstance, NULL 
-            mov [hControlButtons + 3 * SIZEOF DWORD], eax
+            mov hControlButtons[13 * SIZEOF DWORD], eax
+
+            push hWnd
+            call InitializeLayers
+
+            push OFFSET hControlButtons
+            call InitializeLayersButtons
 
             push 0
             push 0
@@ -233,7 +250,7 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
 
             mov eax, [hLayerButtons + 0 * SIZEOF DWORD]
 
-            push eax
+            push 0
             call AddLayerButton
 
             inc layerID
@@ -254,7 +271,7 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
             mov eax, [eax+4]
             mov pFilePath, eax
 
-            invoke LoadProjectDllW, pFilePath, hWnd, hLayerInstance, btnWidth, btnHeight, addr hLayerButtons, layerID, addr szButtonClass, addr msgText
+            invoke LoadProjectDllW, pFilePath
 
             NoFileArg:
                 ret
@@ -263,43 +280,23 @@ LoadProjectDllW PROTO STDCALL :PTR WORD, :HWND, :HINSTANCE, :PTR DWORD, :PTR DWO
         .ELSEIF uMsg == WM_COMMAND
             .IF wParam == 1001
 
-                call GetActiveLayersCount
-                mov edx, eax
-                
-                xor eax, eax
-                
-                mov eax, btnHeight  
-                mul ecx
-                mov ebx, eax
-            
-                mov edx, layerID
-                
-                push edx
-                push 0
-                call AddLayer
+                push layerID ;Envia layerID para a Stack como segundo parâmetro de AddLayer
+                push 0 ;Envia 0 (False) para a Stack como primeiro parâmetro de AddLayer
+                call AddLayer ;Chama AddLayer (DLL)
+                                
+                push layerID ;Passa o layerID para a Stack como primeiro parâmetro de AddLayerButton
+                call AddLayerButton ;Chama AddLayerButton (DLL)
 
-                invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET msgText, WS_CHILD or WS_VISIBLE or WS_BORDER or BS_BITMAP, 0, ebx, btnWidth, btnHeight, hWnd, layerID, hLayerInstance, NULL 
-                mov [hLayerButtons + edx * SIZEOF DWORD], eax
-
-                push eax
-                call AddLayerButton
-
-                invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
-
-                push edx
-                call SetLayer
-
-                inc layerID
+                inc layerID ;Incrementa layerID
                 
             .ELSEIF wParam == 1002
                 call RemoveLayer
                 call RemoveLayerButton
 
-                invoke InvalidateRect, hWndLayer, NULL, 1
-                invoke UpdateWindow, hWndLayer
+                invoke InvalidateRect, layersHwnd, NULL, 1
+                invoke UpdateWindow, layersHwnd
 
                 invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW or RDW_ALLCHILDREN
-                invoke SendMessageA, hWnd, WM_COMMAND, 1002, 0
                 
                 call RenderLayers
 

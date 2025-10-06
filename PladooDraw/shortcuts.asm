@@ -10,6 +10,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 	EXTERN selectedTool:DWORD	
 	EXTERN Undo:proc
 	EXTERN Redo:proc
+	EXTERN ReorderLayers:proc
 	EXTERN ReorderLayerUp:proc
 	EXTERN ReorderLayerDown:proc
 	EXTERN RenderLayers:proc
@@ -99,19 +100,25 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
 		LUndo: 
 			call Undo
+			
+			push 0
+			call ReorderLayers
 			jmp END_PROC
 
 		LRedo: 
 			call Redo
+
+			push 0
+			call ReorderLayers
 			jmp END_PROC
 
 		LOrderUp:
-			call ReorderLayerUp
+			call ReorderLayerDown
 			call RenderLayers
 			jmp END_PROC
 
 		LOrderDown:
-			call ReorderLayerDown
+			call ReorderLayerUp
 			call RenderLayers
 			jmp END_PROC
 
