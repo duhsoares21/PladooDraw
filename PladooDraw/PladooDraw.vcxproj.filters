@@ -6,6 +6,7 @@
     <MASM Include="paint.asm" />
     <MASM Include="tools.asm" />
     <MASM Include="layers.asm" />
+    <MASM Include="replay.asm" />
   </ItemGroup>
   <ItemGroup>
     <None Include="resource_icons.inc" />

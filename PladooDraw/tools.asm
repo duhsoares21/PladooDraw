@@ -16,6 +16,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 
 EXTERN Cleanup:proc
 EXTERN SetSelectedTool:proc
+EXTERN InitializeTools: PROC
 
 SaveProjectDll PROTO STDCALL :PTR BYTE
 LoadProjectDll PROTO STDCALL :PTR WORD
@@ -39,6 +40,7 @@ ExportSVG PROTO STDCALL
     EXTERN layerID:DWORD
 
     EXTERN docHwnd :HWND
+    EXTERN replayHwnd :HWND
 
     ToolClassName db "ToolbarWindowClass",0                 
     ToolAppName db "Tool Window",0                 
@@ -134,9 +136,12 @@ ExportSVG PROTO STDCALL
     openFilePath dw MAX_PATH dup(0)
     ofnOpen       OPENFILENAME <>
 
-.CODE          
+.CODE     
 
-   
+    SetupReplayMode proc
+        
+    SetupReplayMode endp
+
     SaveFileDialog PROC
         ; Zera a estrutura OPENFILENAME
         invoke RtlZeroMemory, addr ofn, sizeof ofn
@@ -369,6 +374,9 @@ LoadFileDialog ENDP
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonNewProject, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, eax, 120, 30, hWnd, 107, hToolInstance, NULL
             mov [hToolButtons + 14 * SIZEOF DWORD], eax
 
+            push hWnd
+            call InitializeTools
+
             ret
         .ELSEIF uMsg == WM_DRAWITEM
             mov eax, lParam
@@ -471,7 +479,7 @@ LoadFileDialog ENDP
                     ret
                 .ENDIF
 
-                invoke SetFocus, hWnd
+                invoke SetFocus, mainHwnd
 
                 ret
         .ELSE

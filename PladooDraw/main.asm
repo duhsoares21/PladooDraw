@@ -79,8 +79,8 @@ WinMain PROTO
     public layersHwnd
     layersHwnd HWND ?
 
-    public layersListHwnd
-    layersListHwnd HWND ?
+    public replayHwnd
+    replayHwnd HWND ?
 
     public documentWidth
     documentWidth DWORD ?

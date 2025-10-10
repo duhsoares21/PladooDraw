@@ -22,6 +22,7 @@ EXTERN LineTool:proc
 EXTERN RectangleTool:proc
 EXTERN BrushTool:proc
 EXTERN EraserTool:proc
+EXTERN UpdateLayers:proc
 EXTERN RenderLayers:proc
 EXTERN WriteTool:proc
 EXTERN Cleanup:proc
@@ -35,9 +36,13 @@ EXTERN ZoomOut_Default:proc
 EXTERN InitializeLayerRenderPreview:proc
 EXTERN GetActiveLayersCount:proc
 
+EXTERN SetReplayMode:proc
+EXTERN EditFromThisPoint:proc
+
 Resize PROTO STDCALL :DWORD, :DWORD
 SelectTool PROTO STDCALL :DWORD, :DWORD
 MoveTool PROTO STDCALL :DWORD, :DWORD, :DWORD, :DWORD
+SetZoomFactor PROTO STDCALL :DWORD
 
 Shortcuts proto :HWND,:WPARAM
 Paint proto :HWND,:DWORD,:DWORD
@@ -50,6 +55,7 @@ TMove proto :DWORD, :DWORD
 WinDocument proto :HWND
 WinTool proto :HWND
 WinLayer proto :HWND
+WinReplay proto :HWND
 
 .DATA 
     EXTERN isMouseDown:BYTE
@@ -63,6 +69,7 @@ WinLayer proto :HWND
     EXTERN docHwnd:HWND
     EXTERN layersHwnd:HWND
     EXTERN toolsHwnd:HWND
+    EXTERN replayHwnd:HWND
     EXTERN panOffsetX:DWORD
     EXTERN panOffsetY:DWORD
     EXTERN hControlButtons:HWND
@@ -79,6 +86,8 @@ WinLayer proto :HWND
     AppNameDoc db "Pladoo Draw Document",0 
 
     szButtonClass db "BUTTON", 0
+    szReplayText db "Replay Mode", 0
+    szEditFromThisPointText db "Edit From This Point", 0
 
     szButton512 db "SQUARE (1:1)", 0
     szButton720 db "RECTANGLE (16:9)", 0
@@ -94,6 +103,9 @@ WinLayer proto :HWND
 
     PUBLIC pixelModeFlag
     pixelModeFlag DWORD 0
+
+    PUBLIC replayModeFlag
+    replayModeFlag DWORD 0
 
     screenWidth DWORD 0
     screenHeight DWORD 0
@@ -247,6 +259,7 @@ StartDraw proc
     invoke WinDocument, mainHwnd
     invoke WinLayer, mainHwnd
     invoke WinTool, mainHwnd
+    invoke WinReplay, mainHwnd
 
     call GetActiveLayersCount
     mov ecx, eax
@@ -524,6 +537,10 @@ WinMain proc
         LOCAL dwStyle:DWORD
         LOCAL rect:RECT
 
+        LOCAL parentWidth:DWORD
+        LOCAL halfParentWidth:DWORD
+        LOCAL xCenter:DWORD
+
         .IF uMsg==WM_DESTROY
                 
             call Cleanup
@@ -557,6 +574,37 @@ WinMain proc
         .ELSEIF uMsg == WM_SHOWWINDOW
             push hWnd
             call SetupProject
+
+            invoke GetClientRect, hWnd, addr rect
+            
+            mov eax, rect.right
+            mov ecx, rect.left
+            sub eax, ecx
+            
+            mov parentWidth, eax
+
+            mov eax, parentWidth
+            mov ecx, 2
+            div ecx
+
+            mov halfParentWidth, eax
+
+            mov eax, halfParentWidth
+            sub eax, 60
+
+            mov xCenter, eax
+
+            ; Checkbox: Replay Mode
+            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szReplayText, WS_CHILD or WS_VISIBLE or BS_AUTOCHECKBOX, xCenter, 50, 120, 30, hWnd, 108, hMainInstance, NULL
+
+            mov eax, halfParentWidth
+            sub eax, 75
+
+            mov xCenter, eax
+
+            ;Button: Edit From this Point
+            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szEditFromThisPointText, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, xCenter, 100, 150, 30, hWnd, 109, hMainInstance, NULL
+
             ret
         .ELSEIF uMsg == WM_COMMAND
             .IF wParam == 512
@@ -568,6 +616,17 @@ WinMain proc
 
                 invoke StartDraw
                 ret
+            .ELSEIF wParam == 109
+            
+                invoke SendDlgItemMessage, hWnd, 108, BM_CLICK, 0, 0
+
+                call EditFromThisPoint
+                
+                push -1
+                call UpdateLayers
+                
+                call RenderLayers
+                ret
             .ELSEIF wParam == 720
               
                 mov documentWidth, 1280
@@ -576,6 +635,28 @@ WinMain proc
                 xor ecx, ecx
 
                 invoke StartDraw
+                ret
+            .ELSEIF wParam == 108
+                ; Get checkbox state
+                invoke SendDlgItemMessage, hWnd, 108, BM_GETCHECK, 0, 0
+                    
+                .IF eax == BST_CHECKED
+                    mov replayModeFlag, 1
+                    invoke SetZoomFactor, 1
+                    invoke ShowWindow,toolsHwnd,SW_HIDE
+                    invoke ShowWindow,layersHwnd,SW_HIDE
+                    invoke ShowWindow,replayHwnd,SW_SHOWDEFAULT
+                        
+                .ELSE
+                    mov replayModeFlag, 0
+                    call RenderLayers
+                    invoke ShowWindow,toolsHwnd,SW_SHOWDEFAULT
+                    invoke ShowWindow,layersHwnd,SW_SHOWDEFAULT
+                    invoke ShowWindow,replayHwnd,SW_HIDE
+                .ENDIF
+
+                push replayModeFlag
+                call SetReplayMode
                 ret
             .ENDIF
 
@@ -696,7 +777,10 @@ WinMain proc
             shr eax, 16            ; Y f�sico
             mov yInitial, eax
 
-            .IF DWORD PTR [selectedTool] == 1
+            .IF replayModeFlag == 1
+                jmp LEndProc
+                ret
+            .ELSEIF DWORD PTR [selectedTool] == 1
                 .IF pixelModeFlag == 1
                     invoke TBrush, xInitial, yInitial, color, pixelModeFlag
                     call RenderLayers
@@ -721,12 +805,19 @@ WinMain proc
 
         .ELSEIF uMsg==WM_LBUTTONUP
 
+            .IF replayModeFlag == 1
+                jmp LEndMessage
+                ret
+            .ENDIF
+
             invoke SetFocus, hWnd
 
             mov byte ptr [isMouseDown], 0
 
             call handleMouseUp
 
+            LEndMessage:
+            ret
         .ELSEIF uMsg==WM_MOUSEMOVE
                
             cmp byte ptr [isMouseDown], 2
@@ -787,6 +878,12 @@ WinMain proc
             LEndProc:
             ret
         .ELSEIF uMsg==WM_MOUSEWHEEL
+
+             .IF replayModeFlag == 1
+                jmp END_PROC
+                ret
+            .ENDIF
+
             mov eax, wParam
             shr eax, 16              
             cmp eax, 120
