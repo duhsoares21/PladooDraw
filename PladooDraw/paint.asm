@@ -127,6 +127,9 @@ WinReplay proto :HWND
     SetupProjectRect RECT {0,0,0,0}
 
 .DATA?
+    ReplayModeCheckboxHWND HWND ?
+    EditFromThisPointHWND HWND ?
+
     mainHdc HDC ?
     hInstance HINSTANCE ?                       
     hDefaultCursor HCURSOR ?
@@ -270,6 +273,8 @@ StartDraw proc
     invoke SetWindowPos, [hControlButtons + 1 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
     invoke SetWindowPos, [hControlButtons + 2 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
     invoke SetWindowPos, [hControlButtons + 3 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
+
+    invoke ShowWindow, ReplayModeCheckboxHWND, SW_SHOWDEFAULT
     
     call InitializeLayerRenderPreview
 
@@ -595,7 +600,8 @@ WinMain proc
             mov xCenter, eax
 
             ; Checkbox: Replay Mode
-            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szReplayText, WS_CHILD or WS_VISIBLE or BS_AUTOCHECKBOX, xCenter, 50, 120, 30, hWnd, 108, hMainInstance, NULL
+            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szReplayText, WS_CHILD or BS_AUTOCHECKBOX, xCenter, 50, 120, 30, hWnd, 108, hMainInstance, NULL
+            mov ReplayModeCheckboxHWND, eax
 
             mov eax, halfParentWidth
             sub eax, 75
@@ -603,7 +609,8 @@ WinMain proc
             mov xCenter, eax
 
             ;Button: Edit From this Point
-            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szEditFromThisPointText, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, xCenter, 100, 150, 30, hWnd, 109, hMainInstance, NULL
+            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szEditFromThisPointText, WS_CHILD or BS_PUSHBUTTON, xCenter, 100, 150, 30, hWnd, 109, hMainInstance, NULL
+            mov EditFromThisPointHWND, eax
 
             ret
         .ELSEIF uMsg == WM_COMMAND
@@ -646,6 +653,7 @@ WinMain proc
                     invoke ShowWindow,toolsHwnd,SW_HIDE
                     invoke ShowWindow,layersHwnd,SW_HIDE
                     invoke ShowWindow,replayHwnd,SW_SHOWDEFAULT
+                    invoke ShowWindow,EditFromThisPointHWND,SW_SHOWDEFAULT
                         
                 .ELSE
                     mov replayModeFlag, 0
@@ -653,6 +661,7 @@ WinMain proc
                     invoke ShowWindow,toolsHwnd,SW_SHOWDEFAULT
                     invoke ShowWindow,layersHwnd,SW_SHOWDEFAULT
                     invoke ShowWindow,replayHwnd,SW_HIDE
+                    invoke ShowWindow,EditFromThisPointHWND,SW_HIDE
                 .ENDIF
 
                 push replayModeFlag
