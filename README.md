@@ -1,7 +1,9 @@
 ### 📁 Projeto: [PladooDraw](https://github.com/duhsoares21/PladooDraw)
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/0349d3f5-df18-41da-b899-939f850f12cd" alt="Screenshot" width="100%">
+  <img alt="Screenshot Home" src="https://github.com/user-attachments/assets/48d4b455-9201-4f58-b233-abbad11001b9" />
+  <img alt="Screenshot Drawing Mode" src="https://github.com/user-attachments/assets/a9c4f4c9-fcdb-40f1-ba70-db7e31808de8" />
+  <img alt="Screenshot Replay Mode" src="https://github.com/user-attachments/assets/2c737caa-4562-4e2a-bd0d-fd1356f209f0" />
 </p>
 
 #🖌️ PladooDraw - Aplicativo de Desenho Estilo Paint Clássico
