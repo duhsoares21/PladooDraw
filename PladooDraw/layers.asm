@@ -19,19 +19,22 @@ EXTERN LayersCount: PROC
 EXTERN AddLayerButton: PROC
 EXTERN InitializeLayers: PROC
 EXTERN InitializeLayersButtons: PROC
+EXTERN InitializeLayerRenderPreview:proc
 EXTERN RemoveLayerButton: PROC
 EXTERN OnScrollWheelLayers: PROC
 
-Shortcuts PROTO :HWND,:WPARAM
+Shortcuts PROTO :WPARAM
 IsLayerActive PROTO :DWORD, :PTR DWORD
-LoadProjectDllW PROTO STDCALL :PTR WORD
+SetZoomFactor PROTO STDCALL :DWORD
 
 .DATA                
-    ClassName db "LayerWindowClass",0                 
+    ClassName db "layerWindowClass",0                 
     AppName db "Layers Window",0
     
-    public szButtonClass
-    szButtonClass db "BUTTON", 0
+    LayerGroupClassName db "layerGroupClass",0                 
+    ControlButtonsClassName db "layerGroupButtonsClass", 0
+
+    EXTERN szButtonClass:BYTE
 
     isActive dd 0
 
@@ -55,12 +58,6 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
     screenWidth DWORD 0
     screenHeight DWORD 0
 
-    PUBLIC btnWidth
-    btnWidth DWORD 90
-
-    PUBLIC btnHeight
-    btnHeight DWORD 90
-
     hDefaultCursor HCURSOR ?
     
     hLayers DWORD ? 
@@ -70,10 +67,11 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
     PUBLIC hLayerButtons
     hLayerButtons HWND ?
 
-    PUBLIC hControlButtons
-    hControlButtons HWND 4 DUP(?)
+    EXTERN hControlButtons:HWND
 
     BtnLayerLabel db "Layer %d", 0
+
+    szErrorTitle db "ERROR", 0
         
     EXTERN msgText:BYTE
 	EXTERN msgFmt:BYTE
@@ -81,24 +79,49 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
     EXTERN windowTitleInformation:BYTE
 	EXTERN windowTitleError:BYTE
 
+    EXTERN btnWidth:DWORD
+    EXTERN btnHeight:DWORD
+
 .DATA?           
-    EXTERN layersHwnd:HWND
+    EXTERN toolsHwnd:HWND
+    EXTERN layerWindowHwnd:HWND
     EXTERN mainHwnd:HWND
 
     EXTERN documentWidth:DWORD
     EXTERN documentHeight:DWORD
+
+    layersHwnd HWND ?
+    layersControlButtonsGroupHwnd HWND ?
 
     PUBLIC hLayerInstance
     hLayerInstance HINSTANCE ?                       
 
     hdc HDC ?
 
-    lpCmdLine   LPWSTR ?       
-    argv        LPWSTR* ?      
-    argc        SDWORD ?       
-    pFilePath   LPWSTR ? 
-
 .CODE          
+
+    
+ShowLastError PROC lpTitle:PTR BYTE
+    LOCAL errCode:DWORD
+    LOCAL lpMsgBuf:DWORD
+
+    ; obtém o código do erro
+    invoke GetLastError
+    mov errCode, eax
+
+    ; formata a mensagem do erro em texto legível
+    invoke FormatMessage, \
+        FORMAT_MESSAGE_ALLOCATE_BUFFER or FORMAT_MESSAGE_FROM_SYSTEM or FORMAT_MESSAGE_IGNORE_INSERTS, \
+        NULL, errCode, 0, addr lpMsgBuf, 0, NULL
+
+    ; mostra na messagebox
+    invoke MessageBox, NULL, lpMsgBuf, lpTitle, MB_OK or MB_ICONERROR
+
+    ; libera o buffer alocado internamente por FormatMessage
+    invoke LocalFree, lpMsgBuf
+
+    ret
+ShowLastError ENDP    
 
     WinLayer proc hWnd:HWND         
         LOCAL rect:RECT
@@ -107,6 +130,8 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
         LOCAL msg:MSG
 
         invoke GetModuleHandle, NULL            
+
+        invoke RtlZeroMemory, addr wc, SIZEOF WNDCLASSEX
 
         mov hLayerInstance,eax
         mov wc.hInstance, eax
@@ -117,7 +142,7 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
                                     
         xor eax, eax
 
-        mov wc.hbrBackground,COLOR_BTNFACE+1
+        mov wc.hbrBackground,COLOR_WINDOWFRAME+1
         mov wc.lpszMenuName,NULL
         mov wc.lpszClassName,OFFSET ClassName
             
@@ -134,15 +159,8 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
 
         invoke GetClientRect, hWnd, addr rect
 
-        .IF documentWidth > 512
-            mov btnWidth, 160
-            mov btnHeight, 90
-        .ELSE
-            mov btnWidth, 90
-            mov btnHeight, 90
-        .ENDIF
-
         mov eax, rect.right
+        sub eax, rect.left
         sub eax, btnWidth
         mov screenWidth, eax
 
@@ -153,9 +171,9 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
         NULL,\
         ADDR ClassName,\
         ADDR AppName,\
-        WS_CHILD or WS_VISIBLE or WS_BORDER,\
+        WS_VISIBLE or WS_BORDER,\
         screenWidth,\
-        0,\ 
+        35,\ 
         btnWidth,\
         screenHeight,\
         hWnd,\
@@ -163,11 +181,6 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
         hLayerInstance,\
         NULL
         
-        mov layersHwnd, eax
-        
-        invoke ShowWindow,layersHwnd,SW_SHOWDEFAULT  
-        invoke UpdateWindow, layersHwnd
-           
         ret
     WinLayer endp
 
@@ -192,15 +205,224 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
             ret
             
         .ELSEIF uMsg == WM_CREATE
-            
+            mov ecx, hWnd
+            mov layerWindowHwnd, ecx
+
             invoke GetWindowLong, hWnd, GWL_STYLE
             mov dwStyle, eax
         
             and dwStyle, NOT WS_SYSMENU
         
-            invoke SetWindowLong, hWnd, GWL_STYLE, dwStyle
+            invoke SetWindowLong, hWnd, GWL_STYLE, dwStyle   
+                    
+            invoke ShowWindow,hWnd,SW_SHOWDEFAULT  
+            invoke UpdateWindow, hWnd
             
-            invoke GetClientRect, hWnd, addr rect   
+            push hWnd
+            call WinLayersGroup 
+            ret
+        .ELSEIF uMsg == WM_COMMAND
+            .IF 
+                push wParam
+                call SetLayer
+            .ENDIF
+            
+            ret            
+        .ELSE
+            invoke DefWindowProc,hWnd,uMsg,wParam,lParam
+            ret
+        .ENDIF
+
+        ret
+    LayerWndProc endp
+
+    WinLayersGroup proc hWnd:HWND
+        LOCAL rect:RECT
+
+        LOCAL wc:WNDCLASSEX                                         
+        LOCAL msg:MSG
+
+        LOCAL layerParentWidth:DWORD
+        LOCAL layerParentHeight:DWORD
+
+        invoke RtlZeroMemory, addr wc, SIZEOF WNDCLASSEX
+
+        invoke GetModuleHandle, NULL            
+
+        mov hLayerInstance,eax
+        mov wc.hInstance, eax
+                   
+        mov wc.cbSize,SIZEOF WNDCLASSEX                           
+        mov wc.style, CS_HREDRAW or CS_VREDRAW
+        mov wc.lpfnWndProc, OFFSET LayerGroupWndProc
+
+        xor eax, eax
+                                    
+        mov wc.hbrBackground,COLOR_WINDOWFRAME+1
+        mov wc.lpszMenuName,NULL
+        mov wc.lpszClassName, OFFSET LayerGroupClassName
+            
+        invoke LoadIcon,NULL,IDI_APPLICATION
+
+        mov wc.hIcon,eax
+        mov wc.hIconSm,eax
+            
+        invoke LoadCursor,NULL,IDC_ARROW
+        mov wc.hCursor, eax
+        mov hDefaultCursor, eax
+            
+        invoke RegisterClassEx, addr wc
+
+        invoke GetClientRect, hWnd, addr rect
+
+        mov eax, rect.right
+        mov ecx, rect.left
+        sub eax, ecx
+
+        mov layerParentWidth, eax
+
+        mov eax, rect.bottom
+        mov ecx, rect.top
+        sub eax, ecx
+        sub eax, 90
+
+        mov layerParentHeight, eax
+
+        invoke CreateWindowEx, 0, ADDR LayerGroupClassName, NULL, WS_CHILD or WS_VISIBLE or WS_BORDER, 0, 0, layerParentWidth, layerParentHeight, hWnd, NULL, hLayerInstance, NULL
+
+        .IF eax == 0 
+            invoke ShowLastError, OFFSET szErrorTitle
+        .ENDIF
+
+        ret
+    WinLayersGroup endp
+
+    LayerGroupWndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
+        .IF uMsg == WM_COMMAND
+            .IF wParam >= 0 && wParam <= 1000 
+                push wParam
+                call SetLayer
+            .ENDIF
+        .ELSEIF uMsg == WM_CREATE
+            mov ecx, hWnd
+            mov layersHwnd, ecx
+
+            push layerWindowHwnd
+            call WinControlButtonsGroup
+
+            ret
+        .ELSE
+            invoke DefWindowProc,hWnd,uMsg,wParam,lParam
+            ret
+        .ENDIF
+        ret
+    LayerGroupWndProc endp
+
+    WinControlButtonsGroup proc hWnd:HWND
+
+        LOCAL rect:RECT
+
+        LOCAL wc:WNDCLASSEX                                         
+        LOCAL msg:MSG
+
+        LOCAL layerParentWidth:DWORD
+        LOCAL layerParentHeight:DWORD
+
+        invoke GetModuleHandle, NULL     
+        
+        invoke RtlZeroMemory, addr wc, SIZEOF WNDCLASSEX
+
+        mov hLayerInstance,eax
+        mov wc.hInstance, eax
+                   
+        mov wc.cbSize,SIZEOF WNDCLASSEX                           
+        mov wc.style, CS_HREDRAW or CS_VREDRAW
+        mov wc.lpfnWndProc, OFFSET ControlGroupWndProc
+                                    
+        xor eax, eax
+
+        mov wc.hbrBackground,COLOR_WINDOWFRAME+1
+        mov wc.lpszMenuName,NULL
+        mov wc.lpszClassName,OFFSET ControlButtonsClassName
+            
+        invoke LoadIcon,NULL,IDI_APPLICATION
+
+        mov wc.hIcon,eax
+        mov wc.hIconSm,eax
+            
+        invoke LoadCursor,NULL,IDC_ARROW
+        mov wc.hCursor, eax
+        mov hDefaultCursor, eax
+            
+        invoke RegisterClassEx, addr wc
+
+        invoke GetClientRect, hWnd, addr rect
+
+        mov eax, rect.right
+        mov ecx, rect.left
+        sub eax, ecx
+
+        mov layerParentWidth, eax
+
+        mov eax, rect.bottom
+        mov ecx, rect.top
+        sub eax, ecx
+        sub eax, btnHeight
+        add eax, 30
+
+        mov layerParentHeight, eax
+
+        invoke CreateWindowEx, 0, addr ControlButtonsClassName, NULL, WS_CHILD or WS_VISIBLE or WS_BORDER,0, layerParentHeight, layerParentWidth, btnHeight, layerWindowHwnd, NULL, hLayerInstance, NULL
+        
+        ret
+    WinControlButtonsGroup endp
+    
+    ControlGroupWndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
+        LOCAL rect:RECT
+
+        .IF uMsg == WM_COMMAND
+            .IF wParam == 1001
+
+                call LayersCount
+
+                mov layerID, eax
+
+                push layerID ;Envia layerID para a Stack como segundo parâmetro de AddLayer
+                push 0 ;Envia 0 (False) para a Stack como primeiro parâmetro de AddLayer
+                call AddLayer ;Chama AddLayer (DLL)
+                                
+                push layerID ;Passa o layerID para a Stack como primeiro parâmetro de AddLayerButton
+                call AddLayerButton ;Chama AddLayerButton (DLL)
+
+                ;inc layerID ;Incrementa layerID
+                
+            .ELSEIF wParam == 1002
+                call RemoveLayer
+                call RemoveLayerButton
+
+                invoke InvalidateRect, layerWindowHwnd, NULL, 1
+                invoke UpdateWindow, layerWindowHwnd
+
+                invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW or RDW_ALLCHILDREN
+                
+                call RenderLayers
+
+                xor eax, eax
+                ret
+            .ELSEIF wParam == 1003
+                 push VK_UP
+                 call Shortcuts
+                ret
+            .ELSEIF wParam == 1004
+                 push VK_DOWN
+                 call Shortcuts
+                ret
+            .ENDIF
+        .ELSEIF uMsg == WM_CREATE
+            mov ecx, hWnd
+            mov layersControlButtonsGroupHwnd, ecx
+
+            invoke GetClientRect, hWnd, addr rect
 
             mov eax, rect.bottom
             sub eax, btnHeight
@@ -211,34 +433,44 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
             mov eax, btnWidth
             mov ecx, 2
             div ecx
+            sub eax, 8
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonUp, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, eax, 30, hWnd, 1003, hLayerInstance, NULL 
-            mov hControlButtons[10 * SIZEOF DWORD], eax
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonUp, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 0, eax, 30, layersControlButtonsGroupHwnd, 1003, hLayerInstance, NULL 
+            mov hControlButtons[0 * SIZEOF DWORD], eax
 
             xor eax, eax
 
             mov eax, btnWidth
             mov ecx, 2
             div ecx
+            sub eax, 8
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDown, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, screenHeight, eax, 30, hWnd, 1004, hLayerInstance, NULL 
-            mov hControlButtons[11 * SIZEOF DWORD], eax
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDown, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 0, eax, 30, layersControlButtonsGroupHwnd, 1004, hLayerInstance, NULL 
+            mov hControlButtons[1 * SIZEOF DWORD], eax
 
-            mov eax, screenHeight
+            mov eax, 0
             add eax, 30
             mov screenHeight, eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, btnWidth, 30, hWnd, 1001, hLayerInstance, NULL 
-            mov hControlButtons[12 * SIZEOF DWORD], eax
+            mov eax, btnWidth
+            sub eax, 16
+
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, eax, 30, layersControlButtonsGroupHwnd, 1001, hLayerInstance, NULL 
+            mov hControlButtons[2 * SIZEOF DWORD], eax
         
             mov eax, screenHeight
             add eax, 30
             mov screenHeight, eax
 
-            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDelete, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, btnWidth, 30, hWnd, 1002, hLayerInstance, NULL 
-            mov hControlButtons[13 * SIZEOF DWORD], eax
+            mov eax, btnWidth
+            sub eax, 16
 
-            push hWnd
+            invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDelete, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, eax, 30, layersControlButtonsGroupHwnd, 1002, hLayerInstance, NULL 
+            mov hControlButtons[3 * SIZEOF DWORD], eax
+
+            push layersControlButtonsGroupHwnd
+            push layersHwnd
+            push layerWindowHwnd
             call InitializeLayers
 
             push OFFSET hControlButtons
@@ -252,78 +484,18 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
 
             push 0
             call AddLayerButton
+       
+            call InitializeLayerRenderPreview
 
-            inc layerID
+            invoke SetZoomFactor, 1
 
             xor eax, eax
-
-            invoke GetCommandLineW
-            mov lpCmdLine, eax
-
-            invoke CommandLineToArgvW, lpCmdLine, addr argc
-            mov argv, eax
-
-            mov eax, argc
-            cmp eax, 1
-            jle NoFileArg
-
-            mov eax, argv
-            mov eax, [eax+4]
-            mov pFilePath, eax
-
-            invoke LoadProjectDllW, pFilePath
-
-            NoFileArg:
-                ret
-
             ret
-        .ELSEIF uMsg == WM_COMMAND
-            .IF wParam == 1001
-
-                push layerID ;Envia layerID para a Stack como segundo parâmetro de AddLayer
-                push 0 ;Envia 0 (False) para a Stack como primeiro parâmetro de AddLayer
-                call AddLayer ;Chama AddLayer (DLL)
-                                
-                push layerID ;Passa o layerID para a Stack como primeiro parâmetro de AddLayerButton
-                call AddLayerButton ;Chama AddLayerButton (DLL)
-
-                inc layerID ;Incrementa layerID
-                
-            .ELSEIF wParam == 1002
-                call RemoveLayer
-                call RemoveLayerButton
-
-                invoke InvalidateRect, layersHwnd, NULL, 1
-                invoke UpdateWindow, layersHwnd
-
-                invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW or RDW_ALLCHILDREN
-                
-                call RenderLayers
-
-                xor eax, eax
-                ret
-            .ELSEIF wParam == 1003
-                 push VK_UP
-                 push hWnd
-                 call Shortcuts
-                ret
-            .ELSEIF wParam == 1004
-                 push VK_DOWN
-                 push hWnd
-                 call Shortcuts
-                ret
-            .ELSE 
-                push wParam
-                call SetLayer
-            .ENDIF
-            
-            ret            
         .ELSE
             invoke DefWindowProc,hWnd,uMsg,wParam,lParam
             ret
         .ENDIF
-
         ret
-    LayerWndProc endp
+    ControlGroupWndProc endp
 
     End

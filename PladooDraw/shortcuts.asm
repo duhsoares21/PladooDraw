@@ -18,7 +18,7 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 	EXTERN DecreaseBrushSize_Default:proc
 
 .CODE
-	Shortcuts Proc hWnd:HWND, wParam:WPARAM
+	Shortcuts Proc wParam:WPARAM
 		
 		mov al, byte ptr[wParam]
 

@@ -22,40 +22,30 @@ EXTERN LineTool:proc
 EXTERN RectangleTool:proc
 EXTERN BrushTool:proc
 EXTERN EraserTool:proc
-EXTERN UpdateLayers:proc
 EXTERN RenderLayers:proc
 EXTERN WriteTool:proc
-EXTERN Cleanup:proc
-EXTERN Initialize:proc
+
+EXTERN InitializeDocument:proc
+EXTERN InitializeWrite:proc
 EXTERN GetLayer: PROC
 EXTERN DrawLayerPreview:PROC
 
 EXTERN ZoomIn_Default:proc
 EXTERN ZoomOut_Default:proc
 
-EXTERN InitializeLayerRenderPreview:proc
-EXTERN GetActiveLayersCount:proc
 
-EXTERN SetReplayMode:proc
-EXTERN EditFromThisPoint:proc
 
 Resize PROTO STDCALL :DWORD, :DWORD
 SelectTool PROTO STDCALL :DWORD, :DWORD
 MoveTool PROTO STDCALL :DWORD, :DWORD, :DWORD, :DWORD
-SetZoomFactor PROTO STDCALL :DWORD
 
-Shortcuts proto :HWND,:WPARAM
+Shortcuts proto :WPARAM
 Paint proto :HWND,:DWORD,:DWORD
 TBrush proto :DWORD, :DWORD, :COLORREF, :DWORD
 TBucket proto :HWND,:HDC,:COLORREF
 TWrite proto :DWORD, :DWORD
 TSelect proto
 TMove proto :DWORD, :DWORD
-
-WinDocument proto :HWND
-WinTool proto :HWND
-WinLayer proto :HWND
-WinReplay proto :HWND
 
 .DATA 
     EXTERN isMouseDown:BYTE
@@ -67,7 +57,7 @@ WinReplay proto :HWND
     EXTERN yInitial:DWORD
     EXTERN mainHwnd:HWND
     EXTERN docHwnd:HWND
-    EXTERN layersHwnd:HWND
+    EXTERN layerWindowHwnd:HWND
     EXTERN toolsHwnd:HWND
     EXTERN replayHwnd:HWND
     EXTERN panOffsetX:DWORD
@@ -79,18 +69,12 @@ WinReplay proto :HWND
     EXTERN inSession:DWORD
     EXTERN documentWidth:DWORD
     EXTERN documentHeight:DWORD
+    EXTERN btnWidth:DWORD
+    EXTERN btnHeight:DWORD
+    EXTERN szButtonClass:BYTE
 
-    ClassName db "MainWindowClass",0   
     DocClassName db "DocWindowClass",0   
-    AppName db "Pladoo Draw",0 
     AppNameDoc db "Pladoo Draw Document",0 
-
-    szButtonClass db "BUTTON", 0
-    szReplayText db "Replay Mode", 0
-    szEditFromThisPointText db "Edit From This Point", 0
-
-    szButton512 db "SQUARE (1:1)", 0
-    szButton720 db "RECTANGLE (16:9)", 0
 
     szErrorCreatingDoc db "Erro ao criar a janela do documento.",0
     szErrorTitle       db "Erro",0  
@@ -104,35 +88,17 @@ WinReplay proto :HWND
     PUBLIC pixelModeFlag
     pixelModeFlag DWORD 0
 
-    PUBLIC replayModeFlag
-    replayModeFlag DWORD 0
+    EXTERN replayModeFlag:DWORD
 
     screenWidth DWORD 0
     screenHeight DWORD 0
 
-    mainWindowWidth dd 0
-    mainWindowHeight dd 0
-
-    NewButtonPositionX DWORD 0
-    NewButtonPositionY DWORD 0
-    NewButtonHeight DWORD 0
-    WidthSquare DWORD 0
-    WidthRect DWORD 0
-    Spacing DWORD 0
-    TotalWidth DWORD 0  
-    HalfTotal DWORD 0
-    CenterX DWORD 0
-    CenterY DWORD 0
-    LeftX DWORD 0
-    SetupProjectRect RECT {0,0,0,0}
-
 .DATA?
-    ReplayModeCheckboxHWND HWND ?
-    EditFromThisPointHWND HWND ?
+
+    EXTERN hDefaultCursor:HCURSOR
 
     mainHdc HDC ?
     hInstance HINSTANCE ?                       
-    hDefaultCursor HCURSOR ?
     hEraserCursor HCURSOR ?
     hBrushCursor HCURSOR ?
     hRectangleCursor HCURSOR ?
@@ -142,205 +108,14 @@ WinReplay proto :HWND
     hMoveCursor HCURSOR ?
     hTextCursor HCURSOR ?
 
-    hMainInstance HINSTANCE ?
     hDocInstance HINSTANCE ? 
     
     lpMsgBuf dd ?    ; ponteiro para mensagem de erro formatada
-
-    button512 HWND ?
-    button720 HWND ?
 
     lastMouseX DWORD ?
     lastMouseY DWORD ?
     
 .CODE
-
-SetupProject proc hWnd:HWND
-    ; 1) pega área cliente
-    invoke GetClientRect, hWnd, ADDR SetupProjectRect
-
-    ; largura = right - left
-    mov eax, SetupProjectRect.right
-    mov ecx, SetupProjectRect.left
-    sub eax, ecx
-    mov mainWindowWidth, eax
-
-    ; altura = bottom - top
-    mov eax, SetupProjectRect.bottom
-    mov ecx, SetupProjectRect.top
-    sub eax, ecx
-    mov mainWindowHeight, eax
-
-    ; 2) calcula centro (X e Y)
-    mov eax, mainWindowWidth
-    xor edx, edx
-    mov ecx, 2
-    div ecx
-    mov CenterX, eax
-
-    mov eax, mainWindowHeight
-    xor edx, edx
-    mov ecx, 2
-    div ecx
-    mov CenterY, eax
-
-    ; 3) calcula altura dos botões = 1/3 da altura da janela
-    mov eax, mainWindowHeight
-    xor edx, edx
-    mov ecx, 3
-    div ecx
-    mov NewButtonHeight, eax         ; altura comum aos 2 botões
-
-    ; 4) largura do botão quadrado = mesma altura
-    mov eax, NewButtonHeight
-    mov WidthSquare, eax
-
-    ; 5) largura do botão retangular = height * 16 / 9
-    mov eax, NewButtonHeight
-    mov ecx, 16
-    mul ecx                          ; EDX:EAX = height * 16
-    mov ecx, 9
-    div ecx                          ; EAX = (height*16)/9
-    mov WidthRect, eax
-
-    ; 6) spacing entre botões (ajuste se quiser)
-    mov eax, 20
-    mov Spacing, eax
-
-    ; 7) totalWidth = widthSquare + spacing + widthRect
-    mov eax, WidthSquare
-    add eax, Spacing
-    add eax, WidthRect
-    mov TotalWidth, eax
-
-    ; 8) halfTotal = totalWidth / 2
-    mov eax, TotalWidth
-    shr eax, 1
-    mov HalfTotal, eax
-
-    ; 9) leftX = centerX - halfTotal  (início do bloco centralizado)
-    mov eax, CenterX
-    sub eax, HalfTotal
-    mov LeftX, eax
-
-    ; 10) calcula Y dos botões (centerY - height/2)
-    mov eax, CenterY
-    mov ecx, NewButtonHeight
-    shr ecx, 1
-    sub eax, ecx
-    mov NewButtonPositionY, eax
-
-    ; 11) cria botão SQUARE (1:1) na posição LeftX
-    mov eax, LeftX
-    mov NewButtonPositionX, eax
-    invoke CreateWindowEx, 0, ADDR szButtonClass, ADDR szButton512, \
-        WS_CHILD or WS_VISIBLE or BS_FLAT, \
-        NewButtonPositionX, NewButtonPositionY, \
-        WidthSquare, NewButtonHeight, \
-        hWnd, 512, hMainInstance, NULL
-    mov button512, eax
-
-    ; 12) button RECTANGLE X = LeftX + widthSquare + spacing
-    mov eax, LeftX
-    add eax, WidthSquare
-    add eax, Spacing
-    mov NewButtonPositionX, eax
-
-    invoke CreateWindowEx, 0, ADDR szButtonClass, ADDR szButton720, \
-        WS_CHILD or WS_VISIBLE or BS_FLAT, \
-        NewButtonPositionX, NewButtonPositionY, \
-        WidthRect, NewButtonHeight, \
-        hWnd, 720, hMainInstance, NULL
-    mov button720, eax
-    ret
-SetupProject endp
-
-StartDraw proc
-    invoke DestroyWindow, button512
-    invoke DestroyWindow, button720
-    
-    invoke WinDocument, mainHwnd
-    invoke WinLayer, mainHwnd
-    invoke WinTool, mainHwnd
-    invoke WinReplay, mainHwnd
-
-    call GetActiveLayersCount
-    mov ecx, eax
-        
-    invoke SetWindowPos, layersHwnd, HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
-    invoke SetWindowPos, toolsHwnd, HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
-    invoke SetWindowPos, [hControlButtons + 0 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
-    invoke SetWindowPos, [hControlButtons + 1 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
-    invoke SetWindowPos, [hControlButtons + 2 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
-    invoke SetWindowPos, [hControlButtons + 3 * SIZEOF DWORD], HWND_TOP, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE
-
-    invoke ShowWindow, ReplayModeCheckboxHWND, SW_SHOWDEFAULT
-    
-    call InitializeLayerRenderPreview
-
-    ret
-StartDraw endp
-
-WinMain proc
-        LOCAL wc:WNDCLASSEX                                         
-        LOCAL hwnd:HWND
-        LOCAL workArea: RECT
-
-        mov color, 00000000h
-            
-        mov wc.cbSize,SIZEOF WNDCLASSEX                           
-        mov wc.style, CS_HREDRAW or CS_VREDRAW
-        mov wc.lpfnWndProc, OFFSET WndMainProc
-
-        invoke GetModuleHandle, NULL            
-        mov wc.hInstance, eax
-        mov hMainInstance, eax
-
-        xor eax, eax
-
-        mov wc.hbrBackground,1
-        mov wc.lpszMenuName,NULL
-        mov wc.lpszClassName,OFFSET ClassName
-            
-        invoke LoadIcon,hMainInstance,ID_ICON_APPLICATION
-
-        mov wc.hIcon,eax
-        mov wc.hIconSm,eax
-            
-        invoke LoadCursor,NULL,IDC_ARROW
-        mov wc.hCursor, eax
-        mov hDefaultCursor, eax
-        
-        invoke RegisterClassEx, addr wc       
-        
-        invoke CreateWindowEx, 
-        NULL, 
-        ADDR ClassName, 
-        ADDR AppName, 
-        WS_OVERLAPPEDWINDOW or WS_CLIPCHILDREN, 
-        CW_USEDEFAULT, 
-        CW_USEDEFAULT, 
-        CW_USEDEFAULT, 
-        CW_USEDEFAULT, 
-        NULL, 
-        NULL, 
-        hMainInstance, 
-        NULL
-
-        mov hwnd, eax
-
-        invoke SystemParametersInfo, SPI_GETWORKAREA, 0, addr workArea, 0
-        invoke SetWindowPos, hwnd, NULL, workArea.left, workArea.top, workArea.right, workArea.bottom, SWP_NOZORDER
-
-        invoke ShowWindow,hwnd,SW_SHOW
-        invoke UpdateWindow, hwnd
-        
-        mov eax, hwnd
-        mov mainHwnd, eax
-        
-        ret 
-    WinMain endp
-
     WinDocument proc hWnd:HWND
         LOCAL rect:RECT
         LOCAL wc:WNDCLASSEX                                         
@@ -538,144 +313,7 @@ WinMain proc
         ret
     WinDocument endp
 
-    WndMainProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
-        LOCAL dwStyle:DWORD
-        LOCAL rect:RECT
-
-        LOCAL parentWidth:DWORD
-        LOCAL halfParentWidth:DWORD
-        LOCAL xCenter:DWORD
-
-        .IF uMsg==WM_DESTROY
-                
-            call Cleanup
-            invoke PostQuitMessage,NULL
-
-            ret
-        .ELSEIF uMsg == WM_SIZE
-
-            mov eax, lParam
-            and eax, 0000FFFFh
-            mov mainWindowWidth, eax  
-    
-            mov eax, lParam
-            shr eax, 16              
-            mov mainWindowHeight, eax
-            
-            invoke RedrawWindow, hWnd, NULL, NULL, RDW_INVALIDATE or RDW_UPDATENOW
-            ret
-        .ELSEIF uMsg == WM_CREATE
-
-            invoke GetWindowLong, hWnd, GWL_STYLE
-            mov dwStyle, eax
-        
-            and dwStyle, NOT WS_MAXIMIZEBOX
-            and dwStyle, NOT WS_THICKFRAME
-        
-            invoke SetWindowLong, hWnd, GWL_STYLE, dwStyle
-            invoke SetCursor, hDefaultCursor
-
-            ret
-        .ELSEIF uMsg == WM_SHOWWINDOW
-            push hWnd
-            call SetupProject
-
-            invoke GetClientRect, hWnd, addr rect
-            
-            mov eax, rect.right
-            mov ecx, rect.left
-            sub eax, ecx
-            
-            mov parentWidth, eax
-
-            mov eax, parentWidth
-            mov ecx, 2
-            div ecx
-
-            mov halfParentWidth, eax
-
-            mov eax, halfParentWidth
-            sub eax, 60
-
-            mov xCenter, eax
-
-            ; Checkbox: Replay Mode
-            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szReplayText, WS_CHILD or BS_AUTOCHECKBOX, xCenter, 50, 120, 30, hWnd, 108, hMainInstance, NULL
-            mov ReplayModeCheckboxHWND, eax
-
-            mov eax, halfParentWidth
-            sub eax, 75
-
-            mov xCenter, eax
-
-            ;Button: Edit From this Point
-            invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szEditFromThisPointText, WS_CHILD or BS_PUSHBUTTON, xCenter, 100, 150, 30, hWnd, 109, hMainInstance, NULL
-            mov EditFromThisPointHWND, eax
-
-            ret
-        .ELSEIF uMsg == WM_COMMAND
-            .IF wParam == 512
-                mov ecx, wParam
-                mov documentWidth, ecx
-                mov documentHeight, ecx
-
-                xor ecx, ecx
-
-                invoke StartDraw
-                ret
-            .ELSEIF wParam == 109
-            
-                invoke SendDlgItemMessage, hWnd, 108, BM_CLICK, 0, 0
-
-                call EditFromThisPoint
-                
-                push -1
-                call UpdateLayers
-                
-                call RenderLayers
-                ret
-            .ELSEIF wParam == 720
-              
-                mov documentWidth, 1280
-                mov documentHeight, 720
-                
-                xor ecx, ecx
-
-                invoke StartDraw
-                ret
-            .ELSEIF wParam == 108
-                ; Get checkbox state
-                invoke SendDlgItemMessage, hWnd, 108, BM_GETCHECK, 0, 0
-                    
-                .IF eax == BST_CHECKED
-                    mov replayModeFlag, 1
-                    invoke SetZoomFactor, 1
-                    invoke ShowWindow,toolsHwnd,SW_HIDE
-                    invoke ShowWindow,layersHwnd,SW_HIDE
-                    invoke ShowWindow,replayHwnd,SW_SHOWDEFAULT
-                    invoke ShowWindow,EditFromThisPointHWND,SW_SHOWDEFAULT
-                        
-                .ELSE
-                    mov replayModeFlag, 0
-                    call RenderLayers
-                    invoke ShowWindow,toolsHwnd,SW_SHOWDEFAULT
-                    invoke ShowWindow,layersHwnd,SW_SHOWDEFAULT
-                    invoke ShowWindow,replayHwnd,SW_HIDE
-                    invoke ShowWindow,EditFromThisPointHWND,SW_HIDE
-                .ENDIF
-
-                push replayModeFlag
-                call SetReplayMode
-                ret
-            .ENDIF
-
-        .ELSE
-            invoke DefWindowProc,hWnd,uMsg,wParam,lParam
-            ret
-        .ENDIF
-
-        xor eax,eax
-    WndMainProc endp
+   
 
     WndDocProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM       
         LOCAL rect:RECT
@@ -687,7 +325,6 @@ WinMain proc
         .IF uMsg==WM_KEYDOWN
                 
             push wParam
-            push hWnd
             call Shortcuts
 
             ret
@@ -749,13 +386,15 @@ WinMain proc
             ret
         .ELSEIF uMsg==WM_CREATE
 
-            push hLayerButtons
+            push btnHeight
+            push btnWidth
             push -1
             push -1
             push -1
             push hWnd
-            push mainHwnd
-            call Initialize
+            call InitializeDocument
+
+            call InitializeWrite
 
         .ELSEIF uMsg==WM_SIZE
         

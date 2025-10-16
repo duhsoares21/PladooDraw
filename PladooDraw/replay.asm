@@ -56,7 +56,6 @@ EXTERN OnScrollWheelReplay: PROC
         LOCAL rect:RECT
 
         LOCAL wc:WNDCLASSEX                                         
-        LOCAL msg:MSG
 
         invoke GetModuleHandle, NULL            
 
@@ -86,7 +85,7 @@ EXTERN OnScrollWheelReplay: PROC
 
         invoke GetClientRect, hWnd, addr rect
         mov eax, rect.bottom
-        sub eax, 148
+        sub eax, 190
         mov screenHeight, eax
 
         mov eax, rect.right
@@ -98,11 +97,11 @@ EXTERN OnScrollWheelReplay: PROC
         NULL,\
         ADDR ReplayClassName,\
         ADDR ReplayAppName,\
-        WS_VISIBLE or WS_CHILD or WS_BORDER or WS_CLIPSIBLINGS,\
+        WS_VISIBLE or WS_BORDER or WS_CLIPSIBLINGS,\
         0,\
         screenHeight,\
         screenWidth,\
-        148,\
+        220,\
         hWnd,\
         NULL,\
         hReplayInstance,\
@@ -154,7 +153,7 @@ EXTERN OnScrollWheelReplay: PROC
             add eax, 0
             sub eax, 175
 
-            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonRW, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 111, 50, 24, hWnd, 500, hReplayInstance, NULL 
+            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonRW, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 500, hReplayInstance, NULL 
             mov hReplayButtons[14 * SIZEOF DWORD], eax
 
             xor eax, eax
@@ -162,7 +161,7 @@ EXTERN OnScrollWheelReplay: PROC
             add eax, 70
             sub eax, 175
 
-            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonStepMinus, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 111, 50, 24, hWnd, 501, hReplayInstance, NULL 
+            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonStepMinus, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 501, hReplayInstance, NULL 
             mov hReplayButtons[15 * SIZEOF DWORD], eax
 
             xor eax, eax
@@ -170,7 +169,7 @@ EXTERN OnScrollWheelReplay: PROC
             add eax, 140
             sub eax, 175
 
-            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonPlay, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 111, 50, 24, hWnd, 502, hReplayInstance, NULL 
+            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonPlay, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 502, hReplayInstance, NULL 
             mov hReplayButtons[16 * SIZEOF DWORD], eax
 
             xor eax, eax
@@ -178,7 +177,7 @@ EXTERN OnScrollWheelReplay: PROC
             add eax, 210
             sub eax, 175
 
-            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonPause, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 111, 50, 24, hWnd, 503, hReplayInstance, NULL 
+            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonPause, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 503, hReplayInstance, NULL 
             mov hReplayButtons[17 * SIZEOF DWORD], eax
 
             xor eax, eax
@@ -186,7 +185,7 @@ EXTERN OnScrollWheelReplay: PROC
             add eax, 280
             sub eax, 175
 
-            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonStepPlus, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 111, 50, 24, hWnd, 504, hReplayInstance, NULL 
+            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonStepPlus, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 504, hReplayInstance, NULL 
             mov hReplayButtons[18 * SIZEOF DWORD], eax
 
             xor eax, eax
@@ -194,7 +193,7 @@ EXTERN OnScrollWheelReplay: PROC
             add eax, 350
             sub eax, 175
 
-            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonFF, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 111, 50, 24, hWnd, 505, hReplayInstance, NULL 
+            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonFF, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 505, hReplayInstance, NULL 
             mov hReplayButtons[19 * SIZEOF DWORD], eax
 
             invoke CreateFontW, 24, 30, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, \

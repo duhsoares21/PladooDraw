@@ -107,6 +107,8 @@ ExportSVG PROTO STDCALL
         lpTemplateName   DWORD ?
     CHOOSECOLOR ENDS
 
+    openFilePath dw MAX_PATH dup(0)
+    ofnOpen       OPENFILENAME <>
 
 .DATA?           
 
@@ -123,7 +125,7 @@ ExportSVG PROTO STDCALL
     EXTERN mainHwnd:HWND
 
     EXTERN hLayerButtons:HWND
-    EXTERN layersHwnd:HWND
+    EXTERN layerWindowHwnd:HWND
     EXTERN hLayerInstance:HINSTANCE
 
     EXTERN pixelModeFlag:DWORD
@@ -132,9 +134,6 @@ ExportSVG PROTO STDCALL
 
     saveFilePath db MAX_PATH dup(?)
     ofn           OPENFILENAME <>
-
-    openFilePath dw MAX_PATH dup(0)
-    ofnOpen       OPENFILENAME <>
 
 .CODE     
 
@@ -191,7 +190,6 @@ LoadFileDialog ENDP
         LOCAL rect:RECT
 
         LOCAL wc:WNDCLASSEX                                         
-        LOCAL msg:MSG
 
         invoke GetModuleHandle, NULL            
 
@@ -227,9 +225,9 @@ LoadFileDialog ENDP
         NULL,\
         ADDR ToolClassName,\
         ADDR ToolAppName,\
-        WS_CHILD or WS_VISIBLE or WS_BORDER or WS_CLIPSIBLINGS,\
+        WS_VISIBLE or WS_BORDER or WS_CLIPSIBLINGS,\
         0,\
-        0,\
+        35,\
         120,\
         screenHeight,\
         hWnd,\
@@ -247,8 +245,6 @@ LoadFileDialog ENDP
 
     ToolWndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM       
         LOCAL dwStyle:DWORD
-        LOCAL rect:RECT
-        LOCAL hBrush:HBRUSH
         LOCAL cc:CHOOSECOLOR
                                         
         .IF uMsg==WM_DESTROY                               

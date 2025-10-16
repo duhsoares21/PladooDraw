@@ -7,6 +7,7 @@
     <MASM Include="tools.asm" />
     <MASM Include="layers.asm" />
     <MASM Include="replay.asm" />
+    <MASM Include="create_project.asm" />
   </ItemGroup>
   <ItemGroup>
     <None Include="resource_icons.inc" />

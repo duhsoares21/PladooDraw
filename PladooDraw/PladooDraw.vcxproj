@@ -151,6 +151,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <MASM Include="create_project.asm" />
     <MASM Include="layers.asm" />
     <MASM Include="main.asm">
       <FileType>Document</FileType>
