@@ -21,6 +21,7 @@ EXTERN Initialize:proc
 EXTERN InitializeSurfaceDial:proc
 EXTERN RenderLayers:proc
 EXTERN UpdateLayers:proc
+EXTERN SetAnimationMode:proc
 EXTERN SetReplayMode:proc
 
 StartDraw proto
@@ -55,6 +56,9 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
     mainWindowWidth dd 0
     mainWindowHeight dd 0
     
+    PUBLIC animationModeFlag
+    animationModeFlag DWORD 0
+
     PUBLIC replayModeFlag
     replayModeFlag DWORD 0
 
@@ -104,8 +108,8 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
     public layerWindowHwnd
     layerWindowHwnd HWND ?
 
-    public replayHwnd
-    replayHwnd HWND ?
+    public timelineHwnd
+    timelineHwnd HWND ?
 
     public createProjectHwnd
     createProjectHwnd HWND ?
@@ -289,7 +293,7 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
                         invoke SetZoomFactor, 1
                         invoke ShowWindow,toolsHwnd,SW_HIDE
                         invoke ShowWindow,layerWindowHwnd,SW_HIDE
-                        invoke ShowWindow,replayHwnd,SW_SHOWDEFAULT
+                        invoke ShowWindow,timelineHwnd,SW_SHOWDEFAULT
                         invoke ShowWindow,EditFromThisPointHWND,SW_SHOWDEFAULT
                         
                     .ELSE
@@ -297,12 +301,29 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
                         call RenderLayers
                         invoke ShowWindow,toolsHwnd,SW_SHOWDEFAULT
                         invoke ShowWindow,layerWindowHwnd,SW_SHOWDEFAULT
-                        invoke ShowWindow,replayHwnd,SW_HIDE
+                        invoke ShowWindow,timelineHwnd,SW_HIDE
                         invoke ShowWindow,EditFromThisPointHWND,SW_HIDE
                     .ENDIF
 
                     push replayModeFlag
                     call SetReplayMode
+                    ret
+                .ELSEIF wParam == 110
+                    ; Get checkbox state
+                    invoke SendDlgItemMessage, hWnd, 110, BM_GETCHECK, 0, 0
+                    
+                    .IF eax == BST_CHECKED
+                        mov animationModeFlag, 1
+                        invoke SetZoomFactor, 1
+                        invoke ShowWindow,timelineHwnd,SW_SHOWDEFAULT                        
+                    .ELSE
+                        mov animationModeFlag, 0
+                        call RenderLayers
+                        invoke ShowWindow,timelineHwnd,SW_HIDE   
+                    .ENDIF
+
+                    push animationModeFlag
+                    call SetAnimationMode
                     ret
                 .ENDIF
                 ret

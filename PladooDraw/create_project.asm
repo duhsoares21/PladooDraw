@@ -49,6 +49,7 @@ WinReplay proto :HWND
     ProjectAppName db "Create New Project",0    
 
     szReplayText db "Replay Mode", 0
+    szAnimationText db "Animation Mode", 0
     szEditFromThisPointText db "Edit From This Point", 0
 
     NewButtonPositionX DWORD 0
@@ -66,6 +67,7 @@ WinReplay proto :HWND
 
 .DATA?
 
+    AnimationModeCheckboxHWND HWND ?
     ReplayModeCheckboxHWND HWND ?
     buttonSquare HWND ?
     buttonRectangle HWND ?
@@ -198,9 +200,9 @@ StartDraw proc
     call InitializeSurfaceDial
 
     invoke WinDocument, mainHwnd
+    invoke WinReplay, mainHwnd
     invoke WinLayer, mainHwnd
     invoke WinTool, mainHwnd
-    invoke WinReplay, mainHwnd
 
     invoke GetClientRect, mainHwnd, addr rect
             
@@ -224,6 +226,15 @@ StartDraw proc
     ; Checkbox: Replay Mode
     invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szReplayText, WS_VISIBLE or WS_CHILD or BS_AUTOCHECKBOX, xCenter, 50, 120, 30, mainHwnd, 108, hMainInstance, NULL
     mov ReplayModeCheckboxHWND, eax
+
+    mov eax, halfParentWidth
+    sub eax, 75
+
+    mov xCenter, eax
+
+    ; Checkbox: Animation Mode
+    invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szAnimationText, WS_VISIBLE or WS_CHILD or BS_AUTOCHECKBOX, xCenter, 100, 150, 30, mainHwnd, 110, hMainInstance, NULL
+    mov AnimationModeCheckboxHWND, eax
 
     mov eax, halfParentWidth
     sub eax, 75

@@ -40,7 +40,6 @@ ExportSVG PROTO STDCALL
     EXTERN layerID:DWORD
 
     EXTERN docHwnd :HWND
-    EXTERN replayHwnd :HWND
 
     ToolClassName db "ToolbarWindowClass",0                 
     ToolAppName db "Tool Window",0                 
@@ -136,10 +135,6 @@ ExportSVG PROTO STDCALL
     ofn           OPENFILENAME <>
 
 .CODE     
-
-    SetupReplayMode proc
-        
-    SetupReplayMode endp
 
     SaveFileDialog PROC
         ; Zera a estrutura OPENFILENAME
@@ -245,6 +240,7 @@ LoadFileDialog ENDP
 
     ToolWndProc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM       
         LOCAL dwStyle:DWORD
+        LOCAL rect:RECT
         LOCAL cc:CHOOSECOLOR
                                         
         .IF uMsg==WM_DESTROY                               
@@ -363,7 +359,11 @@ LoadFileDialog ENDP
             invoke CreateWindowEx, 0, ADDR szButtonClass, OFFSET szPixelText, WS_CHILD or WS_VISIBLE or BS_AUTOCHECKBOX, 0, 270, 120, 30, hWnd, 104, hToolInstance, NULL
             mov [hToolButtons + 13 * SIZEOF DWORD], eax
 
-            mov eax, screenHeight
+            invoke GetClientRect, hWnd, addr rect
+
+            mov eax, rect.bottom
+            mov ecx, rect.top
+            sub eax, ecx
             sub eax, 30
 
             ;New Button

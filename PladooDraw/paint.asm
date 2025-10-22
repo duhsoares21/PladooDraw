@@ -23,6 +23,7 @@ EXTERN RectangleTool:proc
 EXTERN BrushTool:proc
 EXTERN EraserTool:proc
 EXTERN RenderLayers:proc
+EXTERN RenderAnimation:proc
 EXTERN WriteTool:proc
 
 EXTERN InitializeDocument:proc
@@ -59,7 +60,6 @@ TMove proto :DWORD, :DWORD
     EXTERN docHwnd:HWND
     EXTERN layerWindowHwnd:HWND
     EXTERN toolsHwnd:HWND
-    EXTERN replayHwnd:HWND
     EXTERN panOffsetX:DWORD
     EXTERN panOffsetY:DWORD
     EXTERN hControlButtons:HWND
@@ -88,6 +88,7 @@ TMove proto :DWORD, :DWORD
     PUBLIC pixelModeFlag
     pixelModeFlag DWORD 0
 
+    EXTERN animationModeFlag:DWORD
     EXTERN replayModeFlag:DWORD
 
     screenWidth DWORD 0

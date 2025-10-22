@@ -15,21 +15,29 @@ includelib shell32.lib
 includelib PladooDraw_Direct2D_LayerSystem.lib
 
 EXTERN SetSelectedTool:proc
+EXTERN AnimationForward:proc
+EXTERN AnimationBackward:proc
+EXTERN PlayAnimation:proc
+EXTERN PauseAnimation:proc
 EXTERN ReplayBackwards:proc
 EXTERN ReplayForward:proc
 EXTERN InitializeReplay: PROC
 EXTERN OnScrollWheelReplay: PROC
+EXTERN CreateAnimationFrame: PROC
+EXTERN RemoveAnimationFrame: PROC
 
 .DATA  
 
     EXTERN btnWidth:DWORD
     EXTERN btnHeight:DWORD
-    EXTERN replayHwnd:HWND
+    EXTERN timelineHwnd:HWND
+    EXTERN animationModeFlag: DWORD
+    EXTERN replayModeFlag: DWORD
 
     szFontName dw 'S','e','g','o','e',' ','U','I',' ','S','y','m','b','o','l',0
 
     ReplayClassName db "ReplayClass", 0
-    ReplayAppName db "Replay Window",0
+    ReplayAppName db "Timeline",0
 
     szButtonClass dw 'B','U','T','T','O','N', 0
    
@@ -39,9 +47,14 @@ EXTERN OnScrollWheelReplay: PROC
     szButtonPause dw 23F8h, 0
     szButtonStepPlus dw 23EDh, 0
     szButtonFF dw 23E9h, 0
+    szButtonAdd dw 002Bh, 0
+    szButtonRemove dw 002Dh, 0
 
     screenWidth DWORD 0
     screenHeight DWORD 0
+
+    halfScreenWidth DWORD 0
+    centerX DWORD 0
 
 .DATA?
     hFontSegoeUISymbol  HFONT ?
@@ -93,32 +106,47 @@ EXTERN OnScrollWheelReplay: PROC
         sub eax, ecx 
         mov screenWidth, eax
 
+        mov eax, screenWidth
+        mov ecx, 2
+        div ecx
+
+        mov halfScreenWidth, eax
+
+        xor eax, eax
+
+        mov eax, halfScreenWidth
+        mov ecx, 300
+        sub eax, ecx
+
+        mov centerX, eax
+
         invoke CreateWindowEx,
         NULL,\
         ADDR ReplayClassName,\
         ADDR ReplayAppName,\
         WS_VISIBLE or WS_BORDER or WS_CLIPSIBLINGS,\
-        0,\
+        centerX,\
         screenHeight,\
-        screenWidth,\
+        600,\
         220,\
         hWnd,\
         NULL,\
         hReplayInstance,\
         NULL
 
-        mov replayHwnd, eax
+        mov timelineHwnd, eax
 
-        invoke ShowWindow,replayHwnd,SW_HIDE
-        invoke UpdateWindow, replayHwnd
+        invoke ShowWindow,timelineHwnd,SW_HIDE
+        invoke UpdateWindow, timelineHwnd
            
         ret
     WinReplay endp
 
     KillTimers proc
-        invoke KillTimer, replayHwnd, 1
-        invoke KillTimer, replayHwnd, 2
-        invoke KillTimer, replayHwnd, 3
+        invoke KillTimer, timelineHwnd, 1
+        invoke KillTimer, timelineHwnd, 2
+        invoke KillTimer, timelineHwnd, 3
+        invoke KillTimer, timelineHwnd, 4
         ret
     KillTimers endp
 
@@ -149,12 +177,21 @@ EXTERN OnScrollWheelReplay: PROC
 
             mov CenterX, eax
 
+            xor eax, eax
+            mov eax, CenterX
+            sub eax, 70
+            sub eax, 175
+
+            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonRemove, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 507, hReplayInstance, NULL 
+            mov hReplayButtons[14 * SIZEOF DWORD], eax
+
+            xor eax, eax
             mov eax, CenterX
             add eax, 0
             sub eax, 175
 
             invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonRW, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 500, hReplayInstance, NULL 
-            mov hReplayButtons[14 * SIZEOF DWORD], eax
+            mov hReplayButtons[15 * SIZEOF DWORD], eax
 
             xor eax, eax
             mov eax, CenterX
@@ -162,7 +199,7 @@ EXTERN OnScrollWheelReplay: PROC
             sub eax, 175
 
             invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonStepMinus, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 501, hReplayInstance, NULL 
-            mov hReplayButtons[15 * SIZEOF DWORD], eax
+            mov hReplayButtons[16 * SIZEOF DWORD], eax
 
             xor eax, eax
             mov eax, CenterX
@@ -170,7 +207,7 @@ EXTERN OnScrollWheelReplay: PROC
             sub eax, 175
 
             invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonPlay, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 502, hReplayInstance, NULL 
-            mov hReplayButtons[16 * SIZEOF DWORD], eax
+            mov hReplayButtons[17 * SIZEOF DWORD], eax
 
             xor eax, eax
             mov eax, CenterX
@@ -178,7 +215,7 @@ EXTERN OnScrollWheelReplay: PROC
             sub eax, 175
 
             invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonPause, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 503, hReplayInstance, NULL 
-            mov hReplayButtons[17 * SIZEOF DWORD], eax
+            mov hReplayButtons[18 * SIZEOF DWORD], eax
 
             xor eax, eax
             mov eax, CenterX
@@ -186,7 +223,7 @@ EXTERN OnScrollWheelReplay: PROC
             sub eax, 175
 
             invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonStepPlus, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 504, hReplayInstance, NULL 
-            mov hReplayButtons[18 * SIZEOF DWORD], eax
+            mov hReplayButtons[19 * SIZEOF DWORD], eax
 
             xor eax, eax
             mov eax, CenterX
@@ -194,7 +231,15 @@ EXTERN OnScrollWheelReplay: PROC
             sub eax, 175
 
             invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonFF, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 505, hReplayInstance, NULL 
-            mov hReplayButtons[19 * SIZEOF DWORD], eax
+            mov hReplayButtons[20 * SIZEOF DWORD], eax
+
+            xor eax, eax
+            mov eax, CenterX
+            add eax, 420
+            sub eax, 175
+
+            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 506, hReplayInstance, NULL 
+            mov hReplayButtons[21 * SIZEOF DWORD], eax
 
             invoke CreateFontW, 24, 30, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, \
                     DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, \
@@ -208,6 +253,8 @@ EXTERN OnScrollWheelReplay: PROC
             invoke SendMessageW, hReplayButtons[17 * SIZEOF DWORD], WM_SETFONT, hFontSegoeUISymbol, TRUE
             invoke SendMessageW, hReplayButtons[18 * SIZEOF DWORD], WM_SETFONT, hFontSegoeUISymbol, TRUE
             invoke SendMessageW, hReplayButtons[19 * SIZEOF DWORD], WM_SETFONT, hFontSegoeUISymbol, TRUE
+            invoke SendMessageW, hReplayButtons[20 * SIZEOF DWORD], WM_SETFONT, hFontSegoeUISymbol, TRUE
+            invoke SendMessageW, hReplayButtons[21 * SIZEOF DWORD], WM_SETFONT, hFontSegoeUISymbol, TRUE
 
             push hWnd
             call InitializeReplay
@@ -220,44 +267,111 @@ EXTERN OnScrollWheelReplay: PROC
                 ret
             .ELSEIF wParam == 501
                 call KillTimers
-                call ReplayBackwards
+
+                .IF animationModeFlag == 1
+                    call AnimationBackward
+                .ENDIF
+
+                .IF replayModeFlag == 1
+                    call ReplayBackwards
+                .ENDIF
+
                 ret
             .ELSEIF wParam == 502
-                call KillTimers
-                invoke SetTimer, hWnd, 2, 300, NULL
+                .IF animationModeFlag == 1
+                    call KillTimers
+                    invoke SetTimer, hWnd, 4, 83, NULL
+                .ENDIF
+
+                .IF replayModeFlag == 1
+                    call KillTimers
+                    invoke SetTimer, hWnd, 2, 300, NULL
+                .ENDIF
                 ret
             .ELSEIF wParam == 503
                 call KillTimers
+
+                .IF animationModeFlag == 1
+                    call PauseAnimation
+                .ENDIF
+
                 ret
             .ELSEIF wParam == 504
                 call KillTimers
-                call ReplayForward
+
+                .IF animationModeFlag == 1
+                    call AnimationForward
+                .ENDIF
+
+                .IF replayModeFlag == 1
+                    call ReplayForward
+                .ENDIF
                 ret
             .ELSEIF wParam == 505
                 call KillTimers
                 invoke SetTimer, hWnd, 3, 100, NULL
                 ret
+            .ELSEIF wParam == 506
+                call CreateAnimationFrame
+                ret
+            .ELSEIF wParam == 507
+                call RemoveAnimationFrame
+                ret
             .ENDIF
+        .ELSEIF uMsg == BM_SETCHECK
+            push wParam
+            ret
         .ELSEIF uMsg == WM_TIMER
             .IF wParam == 1
-                call ReplayBackwards
+                .IF animationModeFlag == 1
+                    call AnimationBackward
+                .ENDIF
+
+                .IF replayModeFlag == 1
+                    call ReplayBackwards
+                .ENDIF
+                
                 ret
             .ELSEIF wParam == 2 || wParam == 3 
-                call ReplayForward
+                .IF animationModeFlag == 1
+                    call AnimationForward
+                .ENDIF
+
+                .IF replayModeFlag == 1
+                    call ReplayForward
+                .ENDIF
+                ret
+            .ELSEIF wParam == 4
+                call PlayAnimation
                 ret
             .ENDIF
-        .ELSEIF uMsg == WM_MOUSEWHEEL
+        .ELSEIF uMsg == WM_MOUSEWHEEL           
 
             cmp wParam, 0
             jg LForward
             jl LBackwards
 
             LForward:
-                call ReplayForward
+                .IF animationModeFlag == 1
+                    call AnimationForward
+                    jmp LEndMessage
+                .ENDIF
+                
+                .IF replayModeFlag == 1
+                    call ReplayForward
+                .ENDIF
+
                 jmp LEndMessage
 
             LBackwards:
-                call ReplayBackwards
+                .IF animationModeFlag == 1
+                    call AnimationBackward
+                    jmp LEndMessage
+                .ENDIF
+
+                .IF replayModeFlag == 1
+                    call ReplayBackwards
+                .ENDIF
 
             LEndMessage:
             ret

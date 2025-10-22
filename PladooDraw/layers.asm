@@ -11,6 +11,7 @@ include \masm32\include\kernel32.inc
 EXTERN AddLayer: PROC
 EXTERN RemoveLayer: PROC
 EXTERN RenderLayers: PROC
+EXTERN RenderAnimation: PROC
 EXTERN DrawLayerPreview: PROC
 EXTERN GetLayer: PROC
 EXTERN SetLayer: PROC
@@ -162,6 +163,7 @@ ShowLastError ENDP
         mov eax, rect.right
         sub eax, rect.left
         sub eax, btnWidth
+        sub eax, 16
         mov screenWidth, eax
 
         mov eax, rect.bottom
@@ -387,6 +389,7 @@ ShowLastError ENDP
 
                 mov layerID, eax
 
+                push -1
                 push layerID ;Envia layerID para a Stack como segundo parâmetro de AddLayer
                 push 0 ;Envia 0 (False) para a Stack como primeiro parâmetro de AddLayer
                 call AddLayer ;Chama AddLayer (DLL)
@@ -427,13 +430,14 @@ ShowLastError ENDP
             mov eax, rect.bottom
             sub eax, btnHeight
             mov screenHeight, eax
-
             xor eax, eax
 
             mov eax, btnWidth
             mov ecx, 2
             div ecx
-            sub eax, 8
+            .IF btnWidth == 190
+                sub eax, 8
+            .ENDIF
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonUp, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, 0, eax, 30, layersControlButtonsGroupHwnd, 1003, hLayerInstance, NULL 
             mov hControlButtons[0 * SIZEOF DWORD], eax
@@ -443,7 +447,9 @@ ShowLastError ENDP
             mov eax, btnWidth
             mov ecx, 2
             div ecx
-            sub eax, 8
+            .IF btnWidth == 190
+                sub eax, 8
+            .ENDIF
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDown, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 0, eax, 30, layersControlButtonsGroupHwnd, 1004, hLayerInstance, NULL 
             mov hControlButtons[1 * SIZEOF DWORD], eax
@@ -453,7 +459,9 @@ ShowLastError ENDP
             mov screenHeight, eax
 
             mov eax, btnWidth
-            sub eax, 16
+            .IF btnWidth == 190
+                sub eax, 16
+            .ENDIF
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, eax, 30, layersControlButtonsGroupHwnd, 1001, hLayerInstance, NULL 
             mov hControlButtons[2 * SIZEOF DWORD], eax
@@ -463,7 +471,9 @@ ShowLastError ENDP
             mov screenHeight, eax
 
             mov eax, btnWidth
-            sub eax, 16
+            .IF btnWidth == 190
+                sub eax, 16
+            .ENDIF
 
             invoke CreateWindowEx, 0, OFFSET szButtonClass, OFFSET szButtonDelete, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, 0, screenHeight, eax, 30, layersControlButtonsGroupHwnd, 1002, hLayerInstance, NULL 
             mov hControlButtons[3 * SIZEOF DWORD], eax
@@ -476,6 +486,7 @@ ShowLastError ENDP
             push OFFSET hControlButtons
             call InitializeLayersButtons
 
+            push 0
             push 0
             push 0
             call AddLayer
