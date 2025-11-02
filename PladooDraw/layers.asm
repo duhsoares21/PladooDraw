@@ -106,11 +106,11 @@ ShowLastError PROC lpTitle:PTR BYTE
     LOCAL errCode:DWORD
     LOCAL lpMsgBuf:DWORD
 
-    ; obtém o código do erro
+    ; obtem o codigo do erro
     invoke GetLastError
     mov errCode, eax
 
-    ; formata a mensagem do erro em texto legível
+    ; formata a mensagem do erro em texto legivel
     invoke FormatMessage, \
         FORMAT_MESSAGE_ALLOCATE_BUFFER or FORMAT_MESSAGE_FROM_SYSTEM or FORMAT_MESSAGE_IGNORE_INSERTS, \
         NULL, errCode, 0, addr lpMsgBuf, 0, NULL
@@ -205,7 +205,6 @@ ShowLastError ENDP
             push wParam
             call OnScrollWheelLayers
             ret
-            
         .ELSEIF uMsg == WM_CREATE
             mov ecx, hWnd
             mov layerWindowHwnd, ecx
@@ -390,11 +389,11 @@ ShowLastError ENDP
                 mov layerID, eax
 
                 push -1
-                push layerID ;Envia layerID para a Stack como segundo parâmetro de AddLayer
-                push 0 ;Envia 0 (False) para a Stack como primeiro parâmetro de AddLayer
+                push layerID ;Envia layerID para a Stack como segundo parï¿½metro de AddLayer
+                push 0 ;Envia 0 (False) para a Stack como primeiro parï¿½metro de AddLayer
                 call AddLayer ;Chama AddLayer (DLL)
                                 
-                push layerID ;Passa o layerID para a Stack como primeiro parâmetro de AddLayerButton
+                push layerID ;Passa o layerID para a Stack como primeiro parï¿½metro de AddLayerButton
                 call AddLayerButton ;Chama AddLayerButton (DLL)
 
                 ;inc layerID ;Incrementa layerID

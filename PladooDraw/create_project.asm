@@ -20,7 +20,8 @@ EXTERN GetActiveLayersCount:proc
 WinDocument proto :HWND
 WinTool proto :HWND
 WinLayer proto :HWND
-WinReplay proto :HWND
+WinTimeline proto :HWND
+WinTimelineAux proto :HWND
 
 .DATA 
 
@@ -78,7 +79,7 @@ WinReplay proto :HWND
 .CODE
 
 SetupProject proc hWnd:HWND
-    ; 1) pega área cliente
+    ; 1) pega ï¿½rea cliente
     invoke GetClientRect, hWnd, ADDR SetupProjectRect
 
     ; largura = right - left
@@ -106,18 +107,18 @@ SetupProject proc hWnd:HWND
     div ecx
     mov CenterY, eax
 
-    ; 3) calcula altura dos botões = 1/3 da altura da janela
+    ; 3) calcula altura dos botï¿½es = 1/3 da altura da janela
     mov eax, createProjectWindowHeight
     xor edx, edx
     mov ecx, 3
     div ecx
-    mov NewButtonHeight, eax         ; altura comum aos 2 botões
+    mov NewButtonHeight, eax         ; altura comum aos 2 botï¿½es
 
-    ; 4) largura do botão quadrado = mesma altura
+    ; 4) largura do botï¿½o quadrado = mesma altura
     mov eax, NewButtonHeight
     mov WidthSquare, eax
 
-    ; 5) largura do botão retangular = height * 16 / 9
+    ; 5) largura do botï¿½o retangular = height * 16 / 9
     mov eax, NewButtonHeight
     mov ecx, 16
     mul ecx                          ; EDX:EAX = height * 16
@@ -125,7 +126,7 @@ SetupProject proc hWnd:HWND
     div ecx                          ; EAX = (height*16)/9
     mov WidthRect, eax
 
-    ; 6) spacing entre botões (ajuste se quiser)
+    ; 6) spacing entre botï¿½es (ajuste se quiser)
     mov eax, 20
     mov Spacing, eax
 
@@ -140,19 +141,19 @@ SetupProject proc hWnd:HWND
     shr eax, 1
     mov HalfTotal, eax
 
-    ; 9) leftX = centerX - halfTotal  (início do bloco centralizado)
+    ; 9) leftX = centerX - halfTotal  (inï¿½cio do bloco centralizado)
     mov eax, CenterX
     sub eax, HalfTotal
     mov LeftX, eax
 
-    ; 10) calcula Y dos botões (centerY - height/2)
+    ; 10) calcula Y dos botï¿½es (centerY - height/2)
     mov eax, CenterY
     mov ecx, NewButtonHeight
     shr ecx, 1
     sub eax, ecx
     mov NewButtonPositionY, eax
 
-    ; 11) cria botão SQUARE (1:1) na posição LeftX
+    ; 11) cria botï¿½o SQUARE (1:1) na posiï¿½ï¿½o LeftX
     mov eax, LeftX
     mov NewButtonPositionX, eax
     invoke CreateWindowEx, 0, ADDR szButtonClass, ADDR szButtonSquare, \
@@ -200,7 +201,8 @@ StartDraw proc
     call InitializeSurfaceDial
 
     invoke WinDocument, mainHwnd
-    invoke WinReplay, mainHwnd
+    invoke WinTimeline, mainHwnd
+    invoke WinTimelineAux, mainHwnd
     invoke WinLayer, mainHwnd
     invoke WinTool, mainHwnd
 

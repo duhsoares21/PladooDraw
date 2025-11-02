@@ -43,7 +43,7 @@ MoveTool PROTO STDCALL :DWORD, :DWORD, :DWORD, :DWORD
 Shortcuts proto :WPARAM
 Paint proto :HWND,:DWORD,:DWORD
 TBrush proto :DWORD, :DWORD, :COLORREF, :DWORD
-TBucket proto :HWND,:HDC,:COLORREF
+TBucket proto :HWND,:COLORREF
 TWrite proto :DWORD, :DWORD
 TSelect proto
 TMove proto :DWORD, :DWORD
@@ -436,10 +436,7 @@ TMove proto :DWORD, :DWORD
                     xor eax, eax
                 .ENDIF
             .ELSEIF DWORD PTR [selectedTool] == 5
-                invoke GetDC, hWnd
-                mov mainHdc, eax
-
-                invoke TBucket, hWnd, mainHdc, DWORD PTR [color]
+                invoke TBucket, hWnd, DWORD PTR [color]
             .ELSEIF DWORD PTR [selectedTool] == 6
                 invoke TSelect
             .ELSEIF DWORD PTR [selectedTool] == 7
@@ -620,7 +617,7 @@ TLine Proc x:DWORD, y:DWORD, localColor: COLORREF
 
 TLine endp
 
-TBucket proc hWnd:HWND, hdc:HDC, localColor:COLORREF
+TBucket proc hWnd:HWND, localColor:COLORREF
     
     push hWnd
     push localColor

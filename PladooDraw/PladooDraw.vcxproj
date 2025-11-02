@@ -158,7 +158,7 @@
       <IncludePaths Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(IncludePaths)</IncludePaths>
     </MASM>
     <MASM Include="paint.asm" />
-    <MASM Include="replay.asm" />
+    <MASM Include="timeline.asm" />
     <MASM Include="tools.asm" />
   </ItemGroup>
   <ItemGroup>

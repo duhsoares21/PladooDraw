@@ -6,7 +6,7 @@
     <MASM Include="paint.asm" />
     <MASM Include="tools.asm" />
     <MASM Include="layers.asm" />
-    <MASM Include="replay.asm" />
+    <MASM Include="timeline.asm" />
     <MASM Include="create_project.asm" />
   </ItemGroup>
   <ItemGroup>

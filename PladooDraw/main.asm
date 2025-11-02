@@ -111,6 +111,9 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
     public timelineHwnd
     timelineHwnd HWND ?
 
+    public timelineAuxHwnd
+    timelineAuxHwnd HWND ?
+
     public createProjectHwnd
     createProjectHwnd HWND ?
 
@@ -315,11 +318,13 @@ LoadProjectDllW PROTO STDCALL :PTR WORD
                     .IF eax == BST_CHECKED
                         mov animationModeFlag, 1
                         invoke SetZoomFactor, 1
-                        invoke ShowWindow,timelineHwnd,SW_SHOWDEFAULT                        
+                        invoke ShowWindow,timelineHwnd,SW_SHOWDEFAULT
+                        invoke ShowWindow,timelineAuxHwnd,SW_SHOWDEFAULT
                     .ELSE
                         mov animationModeFlag, 0
                         call RenderLayers
-                        invoke ShowWindow,timelineHwnd,SW_HIDE   
+                        invoke ShowWindow,timelineHwnd,SW_HIDE
+                        invoke ShowWindow,timelineAuxHwnd,SW_HIDE
                     .ENDIF
 
                     push animationModeFlag
