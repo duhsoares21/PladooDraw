@@ -304,7 +304,7 @@ EXTERN ShowCurrentLayerOnly: PROC
         .ELSEIF uMsg == WM_COMMAND
             .IF wParam == 4500
                 call KillTimers
-                invoke SetTimer, hWnd, 1, 100, NULL
+                invoke SetTimer, hWnd, 1, 1, NULL
                 ret
             .ELSEIF wParam == 4501
                 call KillTimers
@@ -327,7 +327,7 @@ EXTERN ShowCurrentLayerOnly: PROC
 
                 .IF replayModeFlag == 1
                     call KillTimers
-                    invoke SetTimer, hWnd, 2, 300, NULL
+                    invoke SetTimer, hWnd, 2, 16, NULL
                 .ENDIF
                 ret
             .ELSEIF wParam == 4503
@@ -352,7 +352,7 @@ EXTERN ShowCurrentLayerOnly: PROC
                 ret
             .ELSEIF wParam == 4505
                 call KillTimers
-                invoke SetTimer, hWnd, 3, 100, NULL
+                invoke SetTimer, hWnd, 3, 1, NULL
                 ret
             .ELSEIF wParam == 4506
                 call CreateAnimationFrame
@@ -363,16 +363,18 @@ EXTERN ShowCurrentLayerOnly: PROC
                 call UpdateFrames
                 ret
             .ELSEIF wParam >= 0 && wParam <= 1000
-                push wParam
-                call SetAnimationFrame
+                .IF animationModeFlag == 1
+                    push wParam
+                    call SetAnimationFrame
 
-                push wParam
-                call SetTimelineScrollPosition
+                    push wParam
+                    call SetTimelineScrollPosition
 
-                call RenderLayers
-                call RenderAnimation
+                    call RenderLayers
+                    call RenderAnimation
 
-                call UpdateFrames
+                    call UpdateFrames
+                .ENDIF
             .ENDIF
         .ELSEIF uMsg == BM_SETCHECK
             push wParam

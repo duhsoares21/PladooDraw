@@ -38,6 +38,7 @@ EXTERN ZoomOut_Default:proc
 
 Resize PROTO STDCALL :DWORD, :DWORD
 SelectTool PROTO STDCALL :DWORD, :DWORD
+UnSelectTool PROTO STDCALL
 MoveTool PROTO STDCALL :DWORD, :DWORD, :DWORD, :DWORD
 
 Shortcuts proto :WPARAM
@@ -633,6 +634,12 @@ TSelect Proc
 
     ret
 TSelect endp
+
+TUnSelect Proc
+    invoke UnSelectTool
+
+    ret
+TUnSelect endp
 
 TMove Proc x:DWORD, y:DWORD
 
