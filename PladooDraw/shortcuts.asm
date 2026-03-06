@@ -10,6 +10,9 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 	EXTERN selectedTool:DWORD	
 	EXTERN Undo:proc
 	EXTERN Redo:proc
+	EXTERN CopyAction:proc
+	EXTERN PasteAction:proc
+	EXTERN DeleteAction:proc
 	EXTERN ReorderLayers:proc
 	EXTERN ReorderLayerUp:proc
 	EXTERN ReorderLayerDown:proc
@@ -21,48 +24,67 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 	Shortcuts Proc wParam:WPARAM
 		
 		mov al, byte ptr[wParam]
+		push ax
 
-		cmp al, VK_ADD
-		je Increase
+		invoke GetAsyncKeyState, VK_CONTROL
 
-		cmp al, VK_OEM_PLUS
-		je Increase
+		test ax, 8000h
+		pop ax
 
-		cmp al, VK_OEM_MINUS
-		je Decrease
-
-		cmp al, VK_SUBTRACT
-		je Decrease
-
-		cmp al, VK_B
-		je BrushTool
-		
-		cmp al, VK_R
-		je RectangleTool
-
-		cmp al, VK_C
-		je EllipseTool
-
-		cmp al, VK_L
-		je LineTool
-
-		cmp al, VK_F
-		je BucketTool
-
-		cmp al, VK_E
-		je Eraser
+		jz NoCtrl
 
 		cmp al, VK_Z
 		je LUndo
 
-		cmp al, VK_J
+		cmp al, VK_R
 		je LRedo
 
-		cmp al, VK_UP
-		je LOrderUp
+		cmp al, VK_C
+		je LCopy
 
-		cmp al, VK_DOWN
-		je LOrderDown
+		cmp al, VK_V
+		je LPaste
+
+		NoCtrl:
+
+			cmp al, VK_DELETE
+			je LDelete
+
+			cmp al, VK_ADD
+			je Increase
+
+			cmp al, VK_OEM_PLUS
+			je Increase
+
+			cmp al, VK_OEM_MINUS
+			je Decrease
+
+			cmp al, VK_SUBTRACT
+			je Decrease
+
+			cmp al, VK_B
+			je BrushTool
+		
+			cmp al, VK_R
+			je RectangleTool
+
+			cmp al, VK_C
+			je EllipseTool
+
+			cmp al, VK_L
+			je LineTool
+
+			cmp al, VK_F
+			je BucketTool
+
+			cmp al, VK_E
+			je Eraser
+
+			cmp al, VK_UP
+			je LOrderUp
+
+			cmp al, VK_DOWN
+			je LOrderDown
 
 		jmp END_PROC
 
@@ -112,6 +134,18 @@ includelib PladooDraw_Direct2D_LayerSystem.lib
 			call ReorderLayers
 			jmp END_PROC
 
+		LCopy:
+			call CopyAction
+			jmp END_PROC
+
+		LPaste:
+			call PasteAction
+			jmp END_PROC
+
+		LDelete:
+			call DeleteAction
+			jmp END_PROC
+		
 		LOrderUp:
 			call ReorderLayerDown
 			call RenderLayers
