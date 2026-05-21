@@ -33,6 +33,7 @@ EXTERN CreateAnimationFrame: PROC
 EXTERN RemoveAnimationFrame: PROC
 EXTERN SetHideShadow: PROC
 EXTERN ShowCurrentLayerOnly: PROC
+EXTERN IsReplayAtEnd: PROC
 
 .DATA  
 
@@ -76,6 +77,8 @@ EXTERN ShowCurrentLayerOnly: PROC
 
     screenWidth DWORD 0
     screenHeight DWORD 0
+
+    _isReplayAtEnd DWORD 0
 
     halfScreenWidth DWORD 0
     centerX DWORD 0
@@ -179,7 +182,6 @@ EXTERN ShowCurrentLayerOnly: PROC
     KillTimers endp
 
     UpdateFrames proc
-
         call GetCurrentFrameIndex
         mov ebx, eax
 
@@ -223,7 +225,7 @@ EXTERN ShowCurrentLayerOnly: PROC
             sub eax, 70
             sub eax, 175
 
-            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonRemove, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 4507, hTimelineInstance, NULL
+            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonRemove, WS_CHILD or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 4507, hTimelineInstance, NULL
             mov hTimelineButtons[14 * SIZEOF DWORD], eax
 
             xor eax, eax
@@ -279,7 +281,7 @@ EXTERN ShowCurrentLayerOnly: PROC
             add eax, 420
             sub eax, 175
 
-            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or WS_VISIBLE or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 4506, hTimelineInstance, NULL
+            invoke CreateWindowExW, 0, OFFSET szButtonClass, OFFSET szButtonAdd, WS_CHILD or BS_PUSHBUTTON, eax, 145, 50, 24, hWnd, 4506, hTimelineInstance, NULL
             mov hTimelineButtons[21 * SIZEOF DWORD], eax
 
             invoke CreateFontW, 24, 30, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, \
@@ -300,6 +302,15 @@ EXTERN ShowCurrentLayerOnly: PROC
             push hWnd
             call InitializeTimeline
 
+            ret
+        .ELSEIF uMsg == WM_SHOWWINDOW
+            .IF animationModeFlag == 1
+                invoke ShowWindow, hTimelineButtons[14 * SIZEOF DWORD], SW_NORMAL
+                invoke ShowWindow, hTimelineButtons[21 * SIZEOF DWORD], SW_NORMAL
+            .ELSE
+                invoke ShowWindow, hTimelineButtons[14 * SIZEOF DWORD], SW_HIDE
+                invoke ShowWindow, hTimelineButtons[21 * SIZEOF DWORD], SW_HIDE
+            .ENDIF
             ret
         .ELSEIF uMsg == WM_COMMAND
             .IF wParam == 4500
@@ -398,6 +409,13 @@ EXTERN ShowCurrentLayerOnly: PROC
                 .ENDIF
 
                 .IF replayModeFlag == 1
+                    call IsReplayAtEnd
+                    mov _isReplayAtEnd, eax
+
+                    .IF _isReplayAtEnd == 1
+                        call KillTimers
+                    .ENDIF
+
                     call ReplayForward
                 .ENDIF
                 ret
@@ -407,7 +425,6 @@ EXTERN ShowCurrentLayerOnly: PROC
                 ret
             .ENDIF
         .ELSEIF uMsg == WM_MOUSEWHEEL           
-
             cmp wParam, 0
             jg LForward
             jl LBackwards
