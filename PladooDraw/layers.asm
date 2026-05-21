@@ -1,4 +1,4 @@
-.686
+﻿.686
 .model flat,stdcall
 option casemap:none
 
@@ -389,11 +389,11 @@ ShowLastError ENDP
                 mov layerID, eax
 
                 push -1
-                push layerID ;Envia layerID para a Stack como segundo par�metro de AddLayer
-                push 0 ;Envia 0 (False) para a Stack como primeiro par�metro de AddLayer
+                push layerID ;Envia layerID para a Stack como segundo parametro de AddLayer
+                push 0 ;Envia 0 (False) para a Stack como primeiro parametro de AddLayer
                 call AddLayer ;Chama AddLayer (DLL)
                                 
-                push layerID ;Passa o layerID para a Stack como primeiro par�metro de AddLayerButton
+                push layerID ;Passa o layerID para a Stack como primeiro parametro de AddLayerButton
                 call AddLayerButton ;Chama AddLayerButton (DLL)
 
                 ;inc layerID ;Incrementa layerID
